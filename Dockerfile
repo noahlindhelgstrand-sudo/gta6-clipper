@@ -1,7 +1,7 @@
 # För körning på egen server, t.ex. Oracle Cloud Always Free (ARM Ampere eller x86).
 FROM python:3.12-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core cron tini \
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg fonts-dejavu-core fonts-montserrat cron tini \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

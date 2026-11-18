@@ -154,6 +154,10 @@ class Pipeline:
             meta = self.d.metadata(c, tr.text, self.cfg.metadata, self.cfg.language,
                                    self.cfg.secrets.anthropic_api_key, client=self.d.anthropic_client,
                                    frames=self.d.frames(raw))
+            if meta.interest and meta.interest < self.cfg.selection.min_interest:
+                log.info("tråkigt klipp enligt Claude – hoppar över", extra={"clip": c.key, "interest": meta.interest})
+                self.db.set_status(c.key, "skipped", f"för lågt intressebetyg ({meta.interest}/10)")
+                return "skipped"
             if meta.suggestive and self.suggestive_in_queue() >= self.cfg.queue.max_suggestive_in_queue:
                 log.info("suggestivt klipp – kön har redan ett, hoppar över", extra={"clip": c.key})
                 self.db.set_status(c.key, "skipped", "suggestivt (kön har redan max)")
@@ -178,7 +182,7 @@ class Pipeline:
             shutil.rmtree(clip_dir, ignore_errors=True)
 
     # Höj när renderingen ändras på ett sätt som gör gamla köade videor inaktuella
-    RENDER_VERSION = "3-suggestive"
+    RENDER_VERSION = "4-quality"
 
     def suggestive_in_queue(self) -> int:
         return sum(1 for r in self.db.rendered_queue() if self.db.meta_of(r).suggestive)

@@ -17,6 +17,8 @@ dependencies = [
   "google-api-python-client>=2.130",
   "google-auth>=2.30",
   "google-auth-oauthlib>=1.2",
+  "opencv-python-headless>=4.9,<5",   # facecam-detektering (Haar-kaskader saknas i 5.x)
+  "numpy",
 ]
 
 [project.optional-dependencies]

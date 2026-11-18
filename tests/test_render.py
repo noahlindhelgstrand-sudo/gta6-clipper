@@ -28,6 +28,7 @@ WORDS = [Word(0.2, 0.5, "no"), Word(0.5, 0.9, "way"), Word(1.0, 1.4, "bro!"), Wo
 
 
 def fast_cfg(**kw):
+    kw.setdefault("auto_facecam", False)
     return RenderCfg(preset="ultrafast", crf=32, **kw)
 
 
@@ -37,7 +38,7 @@ def test_render_dimensions_and_duration(tmp_path):
     info = probe(out)
     assert (info.width, info.height) == (1080, 1920)
     assert info.has_audio
-    assert info.duration == pytest.approx(8.5, abs=0.15)   # 8 s + 0,5 s intro
+    assert info.duration == pytest.approx(8.0, abs=0.15)
 
 
 def test_render_caps_at_max_duration(tmp_path):
@@ -55,7 +56,7 @@ def test_render_with_facecam_and_no_audio(tmp_path):
     info = probe(render_short(src, tmp_path / "out.mp4", fast_cfg(), [], "", "", facecam=cam))
     assert (info.width, info.height) == (1080, 1920)
     assert info.has_audio      # tyst spår läggs till (krävs av vissa plattformar)
-    assert info.duration == pytest.approx(4.5, abs=0.15)
+    assert info.duration == pytest.approx(4.0, abs=0.15)
 
 
 def test_chunk_words_groups_max_three():

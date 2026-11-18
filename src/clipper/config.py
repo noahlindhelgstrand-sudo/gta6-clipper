@@ -34,6 +34,7 @@ class SelectionCfg(BaseModel):
     max_candidates_per_run: int = 3
     max_per_streamer_per_day: int = 1
     spoken_languages: list[str] = Field(default_factory=lambda: ["en"])  # tom = alla
+    min_interest: int = 4              # Claudes betyg 1–10; lägre hoppas över (bara med API-nyckel)
 
 
 class FacecamRect(BaseModel):
@@ -74,18 +75,22 @@ class RenderCfg(BaseModel):
     width: int = 1080
     height: int = 1920
     max_duration_s: float = 45
-    fps: int = 30
-    crf: int = 26
-    preset: str = "veryfast"
-    audio_bitrate: str = "128k"
-    hook_intro_s: float = 0.5
+    fps: int = 60                      # max bildfrekvens (källans fps behålls upp till detta)
+    crf: int = 20                      # lägre = bättre kvalitet (18–23 rimligt)
+    preset: str = "medium"
+    max_bitrate: str = "12M"
+    audio_bitrate: str = "160k"
+    hook_intro_s: float = 0.0          # >0 = fryst första bildruta som intro
     hook_overlay_s: float = 3.0
-    font: str = "DejaVu Sans"
+    font: str = "Montserrat ExtraBold"
     censor_profanity: bool = True     # f*** i undertexter (bättre monetisering)
+    auto_facecam: bool = True          # hitta streamerns kamera automatiskt
+    facecam_height: int = 700          # höjd på kamerafältet överst (facecam-layout)
+    nocam_gameplay_height: int = 1150  # höjd på gameplay när ingen kamera hittas
 
 
 class TranscribeCfg(BaseModel):
-    model: str = "base"
+    model: str = "small"
     compute_type: str = "int8"
     device: str = "cpu"
 
