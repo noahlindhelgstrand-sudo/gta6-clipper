@@ -1,6 +1,7 @@
 """Orkestrering av prepare (steg 1–4) och publish (steg 5–6)."""
 from __future__ import annotations
 
+import json
 import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -17,7 +18,7 @@ from .log import get_logger
 from .models import ClipCandidate
 from .notify import Notifier
 from .publishers.base import AuthExpiredError, PublishError, Publisher, QuotaExceededError
-from .render import render_short
+from .render import extract_frames, render_short
 from .selection import aggregate_streamers, allowed_streamers, select
 from .sources.base import ClipSource, SourceError
 from .storage.base import StateStore
@@ -42,6 +43,7 @@ class Deps:
     transcribe: Callable = transcribe
     render: Callable = render_short
     metadata: Callable = meta_mod.generate
+    frames: Callable = extract_frames
     anthropic_client: object | None = None
     stats: dict = field(default_factory=dict)
 
@@ -150,7 +152,12 @@ class Pipeline:
                 self.db.set_status(c.key, "skipped", f"talat språk: {tr.language}")
                 return "skipped"
             meta = self.d.metadata(c, tr.text, self.cfg.metadata, self.cfg.language,
-                                   self.cfg.secrets.anthropic_api_key, client=self.d.anthropic_client)
+                                   self.cfg.secrets.anthropic_api_key, client=self.d.anthropic_client,
+                                   frames=self.d.frames(raw))
+            if meta.suggestive and self.suggestive_in_queue() >= self.cfg.queue.max_suggestive_in_queue:
+                log.info("suggestivt klipp – kön har redan ett, hoppar över", extra={"clip": c.key})
+                self.db.set_status(c.key, "skipped", "suggestivt (kön har redan max)")
+                return "skipped"
             facecam = self.cfg.streamers.facecam.get(c.streamer_key)
             out_name = f"{c.key.replace(':', '_')}.mp4"
             out = self.d.render(raw, clip_dir / out_name, self.cfg.render, tr.words, meta.hook,
@@ -171,7 +178,26 @@ class Pipeline:
             shutil.rmtree(clip_dir, ignore_errors=True)
 
     # Höj när renderingen ändras på ett sätt som gör gamla köade videor inaktuella
-    RENDER_VERSION = "2-censor"
+    RENDER_VERSION = "3-suggestive"
+
+    def suggestive_in_queue(self) -> int:
+        return sum(1 for r in self.db.rendered_queue() if self.db.meta_of(r).suggestive)
+
+    def suggestive_posted_today(self) -> int:
+        tz = ZoneInfo(self.cfg.timezone)
+        start, end = scheduler.local_day_bounds_utc(self.d.now().astimezone(tz).date(), self.cfg.timezone)
+        rows = self.db.conn.execute(
+            "SELECT c.meta_json FROM posts p JOIN clips c ON c.key=p.clip_key WHERE p.posted_at>=? AND p.posted_at<?",
+            (_iso(start), _iso(end))).fetchall()
+        return sum(1 for r in rows if r["meta_json"] and json.loads(r["meta_json"]).get("suggestive"))
+
+    def pick_for_upload(self):
+        """Högst rankade klippet – men högst max_suggestive_per_day suggestiva per dygn."""
+        allow_suggestive = self.suggestive_posted_today() < self.cfg.publish.max_suggestive_per_day
+        for row in self.db.rendered_queue():
+            if allow_suggestive or not self.db.meta_of(row).suggestive:
+                return row
+        return None
 
     def rerender_outdated(self) -> None:
         if self.db.kv_get("render_version") == self.RENDER_VERSION:
@@ -315,14 +341,15 @@ class Pipeline:
             self.maybe_daily_summary()
             return result
 
-        queue = self.db.rendered_queue()
-        if not queue:
+        clip = self.pick_for_upload()
+        if clip is None:
             flag = f"empty_notified:{slot.key}"
             if not self.db.kv_get(flag):
-                self.d.notifier.error("Tom kö", f"Slot {slot.key} är aktuell men inga renderade klipp finns.")
+                reason = ("Bara suggestiva klipp i kön och dagens kvot är använd." if self.db.rendered_queue()
+                          else "Inga renderade klipp finns.")
+                self.d.notifier.error("Tom kö", f"Slot {slot.key} är aktuell. {reason}")
                 self.db.kv_set(flag, "1")
             return result
-        clip = queue[0]
         if not self.db.claim_slot(slot.key, clip["key"]):
             log.warning("kunde inte reservera slot (redan tagen)", extra={"slot": slot.key})
             return result

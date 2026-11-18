@@ -1,6 +1,7 @@
 """Titel, beskrivning, hashtags och hook via Claude API – med fallback."""
 from __future__ import annotations
 
+import base64
 import json
 import re
 
@@ -8,6 +9,15 @@ from .config import MetadataCfg
 from .log import get_logger
 from .models import ClipCandidate, VideoMetadata
 from .profanity import censor
+
+# Reservfilter när Claude inte kan titta på bilden: ord i klipptitel/transkript
+_SUGGESTIVE_WORDS = re.compile(
+    r"\b(strip ?club|stripper|strippers|lap ?dance|private dance|pole ?dance|twerk\w*|naked|nude|nudity|"
+    r"boobs?|titties|thong|hooker|prostitut\w*|onlyfans|booty|brothel|sex|sexy|horny|bikini)\b", re.I)
+
+
+def looks_suggestive(*texts: str) -> bool:
+    return any(t and _SUGGESTIVE_WORDS.search(t) for t in texts)
 
 log = get_logger("metadata")
 
@@ -20,8 +30,9 @@ SCHEMA = {
         "hook": {"type": "string"},
         "description": {"type": "string"},
         "hashtags": {"type": "array", "items": {"type": "string"}},
+        "suggestive": {"type": "boolean"},
     },
-    "required": ["title", "hook", "description", "hashtags"],
+    "required": ["title", "hook", "description", "hashtags", "suggestive"],
     "additionalProperties": False,
 }
 
@@ -33,6 +44,9 @@ Output fields:
 - hook: 2–6 words shown on screen during the first seconds, creating curiosity (e.g. "He did NOT expect this").
 - description: 1–2 sentences about the moment, written in {language}. Do NOT include links or credit – they are added automatically.
 - hashtags: 3–5 relevant hashtags, each starting with #, no spaces. Always include #GTA6.
+- suggestive: true if the clip (judge mainly the attached frames) shows sexual or suggestive content:
+  strip club, lap/private dance, nudity or near-nudity, sex acts or sexual innuendo as the main focus.
+  Ordinary violence, driving, police chases, swearing and jokes are NOT suggestive.
 
 Write everything in {language}. Never invent events that are not supported by the transcript or clip title.
 Never use profanity, slurs or sexual wording in any field (keep it advertiser-friendly), even if the streamer swears."""
@@ -88,18 +102,27 @@ def fallback(c: ClipCandidate, cfg: MetadataCfg, language: str = "en") -> VideoM
         title, hook, desc = f"{c.streamer_display} i GTA 6 😳", "Vänta på det…", f"Galet ögonblick från {c.streamer_display}s GTA 6-stream."
     else:
         title, hook, desc = f"{c.streamer_display} in GTA 6 😳", "Wait for it…", f"Wild moment from {c.streamer_display}'s GTA 6 stream."
-    if c.title and len(c.title) < 45:
-        title = f"{c.title.strip()} – {c.streamer_display}"
+    # Klipptiteln används bara om den är beskrivande (inte "wtf", "lol", "LMAO" ...)
+    t = (c.title or "").strip()
+    if 12 <= len(t) < 45 and len(t.split()) >= 3 and censor(t, language) == t:
+        title = f"{t} – {c.streamer_display}"
     return assemble(c, title, hook, desc, ["#GTA6", "#GTAVI", "#Gaming"], cfg, "fallback", language)
 
 
+def _fallback_flagged(c: ClipCandidate, transcript: str, cfg: MetadataCfg, language: str) -> VideoMetadata:
+    meta = fallback(c, cfg, language)
+    meta.suggestive = looks_suggestive(c.title, transcript)
+    return meta
+
+
 def generate(c: ClipCandidate, transcript: str, cfg: MetadataCfg, language: str,
-             api_key: str | None, client=None) -> VideoMetadata:
-    """Försök med Claude; vid alla fel -> fallback (pipelinen ska aldrig stanna här)."""
+             api_key: str | None, client=None, frames: list[bytes] | None = None) -> VideoMetadata:
+    """Försök med Claude; vid alla fel -> fallback (pipelinen ska aldrig stanna här).
+    `frames` = JPEG-bildrutor ur klippet så att Claude ser vad som händer (och kan flagga suggestivt innehåll)."""
     if client is None:
         if not api_key:
             log.warning("ANTHROPIC_API_KEY saknas – använder fallback-titel")
-            return fallback(c, cfg, language)
+            return _fallback_flagged(c, transcript, cfg, language)
         import anthropic
         client = anthropic.Anthropic(api_key=api_key, max_retries=3, timeout=60)
 
@@ -116,7 +139,11 @@ def generate(c: ClipCandidate, transcript: str, cfg: MetadataCfg, language: str,
             model=cfg.model,
             max_tokens=2000,
             system=SYSTEM.format(max_title=cfg.max_title_chars, language=lang_name),
-            messages=[{"role": "user", "content": f"Clip data:\n{user}"}],
+            messages=[{"role": "user", "content": [
+                *({"type": "image", "source": {"type": "base64", "media_type": "image/jpeg",
+                                                "data": base64.b64encode(f).decode()}} for f in (frames or [])),
+                {"type": "text", "text": f"Frames from the clip are attached above (in order).\nClip data:\n{user}"},
+            ]}],
             output_config={"effort": cfg.effort, "format": {"type": "json_schema", "schema": SCHEMA}},
             betas=["server-side-fallback-2026-07-01"],
             fallbacks="default",
@@ -128,8 +155,9 @@ def generate(c: ClipCandidate, transcript: str, cfg: MetadataCfg, language: str,
         text = next(b.text for b in resp.content if b.type == "text")
         data = json.loads(text)
         meta = assemble(c, data["title"], data["hook"], data["description"], data["hashtags"], cfg, "claude", language)
-        log.info("metadata från claude", extra={"clip": c.key, "title": meta.title})
+        meta.suggestive = bool(data.get("suggestive")) or looks_suggestive(c.title, transcript)
+        log.info("metadata från claude", extra={"clip": c.key, "title": meta.title, "suggestive": meta.suggestive})
         return meta
     except Exception as e:  # noqa: BLE001 – medvetet bred: fallback vid alla API-/parsefel
         log.warning("Claude misslyckades – fallback-titel", extra={"clip": c.key, "error": str(e)[:300]})
-        return fallback(c, cfg, language)
+        return _fallback_flagged(c, transcript, cfg, language)

@@ -72,6 +72,7 @@ queue:
   buffer_min: 6                  # varning till Discord under detta
   buffer_target: 8               # prepare gör ingenting om bufferten är full
   max_age_hours: 72              # renderade klipp äldre än så kasseras (inaktuella)
+  max_suggestive_in_queue: 1     # strippklubb/nakenhet o.d.: högst 1 i kön åt gången
 
 schedule:
   slots: ["12:00", "17:00", "20:30"]   # lokal tid (timezone ovan)
@@ -83,6 +84,7 @@ publish:
   category_id: "20"              # Gaming
   made_for_kids: false
   max_retries: 5
+  max_suggestive_per_day: 1      # högst 1 suggestivt klipp per dag; övriga uppladdningar är annat
 
 storage:
   backend: github_release        # github_release | local

@@ -100,6 +100,7 @@ class QueueCfg(BaseModel):
     buffer_min: int = 6
     buffer_target: int = 8
     max_age_hours: int = 72
+    max_suggestive_in_queue: int = 1   # högst så många suggestiva klipp i kön samtidigt
 
 
 _SLOT_RE = re.compile(r"^([01]\d|2[0-3]):([0-5]\d)$")
@@ -129,6 +130,7 @@ class PublishCfg(BaseModel):
     category_id: str = "20"
     made_for_kids: bool = False
     max_retries: int = 5
+    max_suggestive_per_day: int = 1    # högst så många suggestiva uppladdningar per dygn
 
     @field_validator("privacy_status")
     @classmethod

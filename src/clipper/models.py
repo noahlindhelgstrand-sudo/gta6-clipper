@@ -36,3 +36,4 @@ class VideoMetadata:
     hashtags: list[str] = field(default_factory=list)
     hook: str = ""
     generated_by: str = "fallback"   # "claude" | "fallback"
+    suggestive: bool = False         # sexuellt/suggestivt innehåll (strippklubb, nakenhet ...)

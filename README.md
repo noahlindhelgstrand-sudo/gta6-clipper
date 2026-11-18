@@ -89,6 +89,14 @@ Allowlist läggs till ovanpå, och blocklist vinner alltid.
   ordet som sägs just nu är gult. Texten ligger i nedre tredjedelen.
 - **Credit i bild**, t.ex. `twitch.tv/streamer`.
 
+### Suggestivt innehåll (strippklubb o.d.)
+Claude får 4 bildrutor ur varje klipp och flaggar sexuellt eller suggestivt innehåll. Utan Claude-nyckel
+används ett enklare ordfilter på klippets titel och transkript, och det missar ofta sådant som bara syns
+i bild.
+- Högst **1** suggestivt klipp i kön åt gången (`queue.max_suggestive_in_queue`).
+- Högst **1** suggestiv uppladdning per dygn (`publish.max_suggestive_per_day`). Övriga uppladdningar
+  tas från annat innehåll.
+
 ### Titel och beskrivning
 Claude (`metadata.model`) får transkriptet och klippets metadata och returnerar strukturerad JSON:
 - en hook-titel på max 70 tecken som slutar på `#Shorts`,

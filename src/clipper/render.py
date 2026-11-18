@@ -142,3 +142,20 @@ def render_short(src_path: str | Path, out_path: str | Path, cfg: RenderCfg, wor
         raise RenderError(f"ffmpeg misslyckades: {r.stderr[-1500:]}")
     ass_file.unlink(missing_ok=True)
     return out_path
+
+
+def extract_frames(path: str | Path, n: int = 4, width: int = 512) -> list[bytes]:
+    """n JPEG-bildrutor jämnt fördelade i klippet (för Claude-granskning)."""
+    try:
+        dur = probe(path).duration
+    except RenderError:
+        return []
+    frames = []
+    for i in range(n):
+        t = dur * (i + 1) / (n + 1)
+        r = subprocess.run(["ffmpeg", "-loglevel", "error", "-ss", f"{t:.2f}", "-i", str(path), "-frames:v", "1",
+                            "-vf", f"scale={width}:-2", "-q:v", "5", "-f", "image2pipe", "-vcodec", "mjpeg", "-"],
+                           capture_output=True)
+        if r.returncode == 0 and r.stdout:
+            frames.append(r.stdout)
+    return frames
