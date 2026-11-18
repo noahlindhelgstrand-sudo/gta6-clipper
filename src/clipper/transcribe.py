@@ -24,6 +24,26 @@ class Transcript:
 
 
 _MODEL_CACHE: dict[tuple, object] = {}
+SAMPLE_RATE = 16000
+
+
+def load_audio(path: str | Path, max_s: float | None = None):
+    """Avkoda ljud med ffmpeg till 16 kHz mono float32.
+
+    Vi undviker faster-whispers egen avkodning (PyAV), eftersom nya PyAV-versioner
+    har tagit bort parametrar som faster-whisper använder."""
+    import subprocess
+
+    import numpy as np
+
+    cmd = ["ffmpeg", "-nostdin", "-loglevel", "error", "-i", str(path)]
+    if max_s:
+        cmd += ["-t", f"{max_s:.3f}"]
+    cmd += ["-vn", "-ac", "1", "-ar", str(SAMPLE_RATE), "-f", "s16le", "-"]
+    r = subprocess.run(cmd, capture_output=True)
+    if r.returncode != 0:
+        raise RuntimeError(f"ffmpeg kunde inte avkoda ljud: {r.stderr.decode(errors='replace')[-300:]}")
+    return np.frombuffer(r.stdout, np.int16).astype(np.float32) / 32768.0
 
 
 def transcribe(path: str | Path, model: str = "base", device: str = "cpu",
@@ -34,7 +54,11 @@ def transcribe(path: str | Path, model: str = "base", device: str = "cpu",
     if key not in _MODEL_CACHE:
         _MODEL_CACHE[key] = WhisperModel(model, device=device, compute_type=compute_type)
     wm = _MODEL_CACHE[key]
-    segments, info = wm.transcribe(str(path), word_timestamps=True, vad_filter=True, beam_size=1)
+    audio = load_audio(path, max_s)
+    if audio.size == 0:
+        log.info("inget ljud att transkribera", extra={"file": str(path)})
+        return Transcript(text="", words=[], language=None)
+    segments, info = wm.transcribe(audio, word_timestamps=True, vad_filter=True, beam_size=1)
     words: list[Word] = []
     for seg in segments:
         for w in seg.words or []:

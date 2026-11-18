@@ -116,6 +116,14 @@ class Pipeline:
                     self.d.store.delete_video(row["video_file"])
                 log.info("klipp för gammalt – kasseras", extra={"clip": row["key"]})
 
+    MAX_ATTEMPTS = 3
+
+    def known_keys(self) -> set[str]:
+        """Klipp som inte ska väljas igen. Misslyckade klipp får nya försök (max MAX_ATTEMPTS)."""
+        retry = {r["key"] for r in self.db.conn.execute("SELECT key FROM clips WHERE status='failed'")
+                 if int(self.db.kv_get(f"fail:{r['key']}") or 0) < self.MAX_ATTEMPTS}
+        return self.db.known_keys() - retry
+
     def process_clip(self, c: ClipCandidate) -> bool:
         clip_dir = self.work / "clips" / c.key.replace(":", "_")
         try:
@@ -137,6 +145,8 @@ class Pipeline:
         except Exception as e:  # noqa: BLE001 – ett trasigt klipp ska inte stoppa resten
             log.exception("klipp misslyckades", extra={"clip": c.key})
             self.db.set_status(c.key, "failed", str(e)[:1000])
+            fails = int(self.db.kv_get(f"fail:{c.key}") or 0) + 1
+            self.db.kv_set(f"fail:{c.key}", str(fails))
             return False
         finally:
             shutil.rmtree(clip_dir, ignore_errors=True)
@@ -156,7 +166,7 @@ class Pipeline:
         clips = self._fetch_all(now - timedelta(hours=self.cfg.selection.lookback_hours), now, max_clips=500)
         langs = {"twitch": self.cfg.sources.twitch.clip_languages}
         allowed = self.allowed()
-        chosen = select(clips, self.cfg.selection, self.cfg.streamers, allowed, self.db.known_keys(), langs, now)
+        chosen = select(clips, self.cfg.selection, self.cfg.streamers, allowed, self.known_keys(), langs, now)
         chosen = chosen[:need]
         log.info("urval klart", extra={"fetched": len(clips), "allowed_streamers": len(allowed),
                                        "chosen": [f"{c.key} score={c.score}" for c in chosen]})

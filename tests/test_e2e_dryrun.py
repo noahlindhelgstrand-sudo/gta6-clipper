@@ -107,3 +107,26 @@ def test_empty_queue_notifies_once(cfg):
         clock["t"] += timedelta(minutes=20)
     titles = [e["embeds"][0]["title"] for e in deps.notifier.sent]
     assert titles.count("❌ Tom kö") == 1
+
+
+def test_failed_clip_is_retried_max_three_times(cfg):
+    from conftest import make_clip
+
+    class OneClip:
+        platform = "twitch"
+        def fetch_clips(self, start, end, max_clips=500):
+            return [make_clip("only", "alpha", views=5000, hours_ago=1, now=clock["t"])]
+
+    clock = {"t": datetime(2026, 11, 20, 0, 7, tzinfo=timezone.utc)}
+    deps = make_deps(cfg, clock)
+    deps.sources = [OneClip()]
+    attempts = Counter()
+
+    def broken_download(url, d, n):
+        attempts[url] += 1
+        raise RuntimeError("simulerat fel")
+    deps.download = broken_download
+    for _ in range(6):
+        with Pipeline(cfg, deps) as p:
+            p.prepare()
+    assert list(attempts.values()) == [3]
