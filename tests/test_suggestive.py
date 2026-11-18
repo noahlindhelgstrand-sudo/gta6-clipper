@@ -36,6 +36,8 @@ def test_fallback_title_ignores_junk_clip_titles():
     c = make_clip("x", "zoil")
     c.title = "wtf"
     assert fallback(c, MetadataCfg()).title.startswith("Zoil in GTA 6")
+    c.title = "Angry Hooker in the car"
+    assert fallback(c, MetadataCfg()).title.startswith("Zoil in GTA 6")
     c.title = "he crashed the police helicopter"
     assert fallback(c, MetadataCfg()).title.startswith("he crashed the police helicopter – Zoil")
 

@@ -104,7 +104,7 @@ def fallback(c: ClipCandidate, cfg: MetadataCfg, language: str = "en") -> VideoM
         title, hook, desc = f"{c.streamer_display} in GTA 6 😳", "Wait for it…", f"Wild moment from {c.streamer_display}'s GTA 6 stream."
     # Klipptiteln används bara om den är beskrivande (inte "wtf", "lol", "LMAO" ...)
     t = (c.title or "").strip()
-    if 12 <= len(t) < 45 and len(t.split()) >= 3 and censor(t, language) == t:
+    if 12 <= len(t) < 45 and len(t.split()) >= 3 and censor(t, language) == t and not looks_suggestive(t):
         title = f"{t} – {c.streamer_display}"
     return assemble(c, title, hook, desc, ["#GTA6", "#GTAVI", "#Gaming"], cfg, "fallback", language)
 
