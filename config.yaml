@@ -1,0 +1,91 @@
+# gta6-clipper – all icke-hemlig konfiguration.
+# Hemligheter läses ENDAST från miljövariabler (se .env.example).
+# Alla värden kan överskridas med miljövariabler: CLIPPER__<SEKTION>__<NYCKEL>,
+# t.ex. CLIPPER__PUBLISH__PRIVACY_STATUS=public
+
+timezone: Europe/Stockholm
+language: en                     # språk för titel/beskrivning/hook (en|sv)
+
+sources:
+  twitch:
+    enabled: true
+    game_name: "Grand Theft Auto VI"
+    clip_languages: ["en"]       # tom lista = alla språk
+  kick:
+    # Kick saknar officiellt clip-API; vi använder den publika webbendpointen.
+    # Den kan blockeras (Cloudflare) från GitHub-runners – då loggas en varning
+    # och Twitch används ensamt.
+    enabled: true
+    category_slug: "grand-theft-auto-vi"
+
+selection:
+  lookback_hours: 24
+  min_views: 200
+  min_duration_s: 15
+  max_duration_s: 60
+  max_candidates_per_run: 3      # hur många nya klipp som laddas ner/renderas per prepare-körning
+  max_per_streamer_per_day: 1    # variation: inte bara samma streamer hela dagen
+
+streamers:
+  # policy:
+  #   "auto"      – streamers upptäcks automatiskt: de med flest klippvisningar i
+  #                 kategorin senaste discovery_days väljs (top_n per plattform).
+  #                 Att klipp finns betyder att streamern har clipping påslaget.
+  #   "allowlist" – ENDAST streamers i allowlist nedan.
+  policy: auto
+  discovery_days: 7
+  top_n: 25
+  # Manuell allowlist – alltid tillåtna. Format "plattform:login".
+  allowlist: []
+  # Blocklist vinner alltid. Lägg till här om någon ber dig sluta (DMCA, mejl, etc.).
+  blocklist: []
+  # Facecam-position i källvideon som andelar (0–1) av bredd/höjd.
+  # Saknas streamern här renderas layouten utan facecam.
+  facecam: {}
+    # "twitch:exempelstreamer": {x: 0.0, y: 0.0, w: 0.25, h: 0.28}
+
+render:
+  width: 1080
+  height: 1920
+  max_duration_s: 45
+  fps: 30
+  crf: 26
+  preset: veryfast
+  audio_bitrate: 128k
+  hook_intro_s: 0.5              # fryst första bildruta med hook-text
+  hook_overlay_s: 3.0            # hook-text ligger kvar överst så här länge
+  font: "DejaVu Sans"
+
+transcribe:
+  model: base                    # base | small
+  compute_type: int8
+  device: cpu
+
+metadata:
+  model: claude-opus-5-5
+  effort: low
+  max_title_chars: 70
+
+queue:
+  buffer_min: 6                  # varning till Discord under detta
+  buffer_target: 8               # prepare gör ingenting om bufferten är full
+  max_age_hours: 72              # renderade klipp äldre än så kasseras (inaktuella)
+
+schedule:
+  slots: ["12:00", "17:00", "20:30"]   # lokal tid (timezone ovan)
+  grace_hours: 3                       # missad slot postas inom detta fönster, annars hoppas den över
+
+publish:
+  platforms: [youtube]
+  privacy_status: private        # private tills YouTube API Compliance Audit är godkänd
+  category_id: "20"              # Gaming
+  made_for_kids: false
+  max_retries: 5
+
+storage:
+  backend: github_release        # github_release | local
+  release_tag: state
+  local_dir: data
+
+notify:
+  daily_summary: true

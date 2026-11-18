@@ -1,0 +1,4 @@
+# Containern kör i UTC; slot-logiken räknar själv om till Europe/Stockholm.
+SHELL=/bin/sh
+17 * * * * root cd /app && . /etc/environment; clipper prepare >> /data/clipper.log 2>&1
+*/10 * * * * root cd /app && . /etc/environment; clipper publish >> /data/clipper.log 2>&1
