@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .profanity import censor
 from .transcribe import Word
 
 
@@ -42,7 +43,9 @@ def chunk_words(words: list[Word], max_words: int = 3, max_gap: float = 0.6) -> 
 
 
 def build_ass(words: list[Word], hook: str, credit: str, offset: float, hook_until: float,
-              total: float, layout: Layout = Layout(), font: str = "DejaVu Sans") -> str:
+              total: float, layout: Layout = Layout(), font: str = "DejaVu Sans",
+              censor_lang: str | None = None) -> str:
+    clean = (lambda t: censor(t, censor_lang)) if censor_lang else (lambda t: t)
     head = f"""[Script Info]
 ScriptType: v4.00+
 PlayResX: {layout.width}
@@ -61,7 +64,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
     lines = []
     if hook:
-        lines.append(f"Dialogue: 2,{_ts(0)},{_ts(hook_until)},Hook,,0,0,0,,{{\\fad(80,200)}}{_esc(hook)}")
+        lines.append(f"Dialogue: 2,{_ts(0)},{_ts(hook_until)},Hook,,0,0,0,,{{\\fad(80,200)}}{_esc(clean(hook))}")
     if credit:
         lines.append(f"Dialogue: 1,{_ts(0)},{_ts(total)},Credit,,0,0,0,,{_esc(credit)}")
     for chunk in chunk_words(words):
@@ -73,7 +76,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 end = start + 0.05
             parts = []
             for j, x in enumerate(chunk):
-                t = _esc(x.text.upper())
+                t = _esc(clean(x.text).upper())
                 parts.append(f"{{\\c&H00E6FF&}}{t}{{\\c&HFFFFFF&}}" if j == i else t)
             pop = "{\\fscx108\\fscy108\\t(0,90,\\fscx100\\fscy100)}"
             lines.append(f"Dialogue: 0,{_ts(start)},{_ts(min(end, total))},Word,,0,0,0,,{pop}{' '.join(parts)}")

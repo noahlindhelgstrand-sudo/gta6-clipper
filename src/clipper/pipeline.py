@@ -136,7 +136,8 @@ class Pipeline:
             facecam = self.cfg.streamers.facecam.get(c.streamer_key)
             out_name = f"{c.key.replace(':', '_')}.mp4"
             out = self.d.render(raw, clip_dir / out_name, self.cfg.render, tr.words, meta.hook,
-                                meta_mod.credit_overlay(c), facecam)
+                                meta_mod.credit_overlay(c), facecam,
+                                language=tr.language or self.cfg.language)
             self.d.store.put_video(out, out_name)
             self.db.mark_rendered(c.key, out_name, tr.text, meta)
             log.info("klipp klart i kön", extra={"clip": c.key, "title": meta.title, "score": c.score,
@@ -151,7 +152,22 @@ class Pipeline:
         finally:
             shutil.rmtree(clip_dir, ignore_errors=True)
 
+    # Höj när renderingen ändras på ett sätt som gör gamla köade videor inaktuella
+    RENDER_VERSION = "2-censor"
+
+    def rerender_outdated(self) -> None:
+        if self.db.kv_get("render_version") == self.RENDER_VERSION:
+            return
+        for row in self.db.rendered_queue():
+            if row["video_file"]:
+                self.d.store.delete_video(row["video_file"])
+            # 'failed' utan räknare => väljs om och renderas på nytt
+            self.db.set_status(row["key"], "failed", "renderas om (ny renderingsversion)")
+            log.info("klipp renderas om", extra={"clip": row["key"]})
+        self.db.kv_set("render_version", self.RENDER_VERSION)
+
     def prepare(self) -> dict:
+        self.rerender_outdated()
         self.expire_old()
         self.discover_streamers()
         buffer = self.db.count_status("rendered")

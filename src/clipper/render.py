@@ -105,7 +105,8 @@ def build_filtergraph(src: ProbeInfo, cfg: RenderCfg, ass_file: Path,
 
 
 def render_short(src_path: str | Path, out_path: str | Path, cfg: RenderCfg, words: list[Word],
-                 hook: str, credit: str, facecam: FacecamRect | None = None) -> Path:
+                 hook: str, credit: str, facecam: FacecamRect | None = None,
+                 language: str = "en") -> Path:
     src_path, out_path = Path(src_path), Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     info = probe(src_path)
@@ -116,7 +117,8 @@ def render_short(src_path: str | Path, out_path: str | Path, cfg: RenderCfg, wor
     graph, layout = build_filtergraph(info, cfg, ass_file, facecam)
     ass_file.write_text(
         build_ass([w for w in words if w.start < clip_len], hook, credit, offset=cfg.hook_intro_s,
-                  hook_until=cfg.hook_intro_s + cfg.hook_overlay_s, total=total, layout=layout, font=cfg.font),
+                  hook_until=cfg.hook_intro_s + cfg.hook_overlay_s, total=total, layout=layout, font=cfg.font,
+                  censor_lang=language if cfg.censor_profanity else None),
         encoding="utf-8",
     )
     delay_ms = int(cfg.hook_intro_s * 1000)

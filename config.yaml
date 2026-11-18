@@ -55,6 +55,7 @@ render:
   hook_intro_s: 0.5              # fryst första bildruta med hook-text
   hook_overlay_s: 3.0            # hook-text ligger kvar överst så här länge
   font: "DejaVu Sans"
+  censor_profanity: true         # svordomar i undertexter/titlar blir f***
 
 transcribe:
   model: base                    # base | small

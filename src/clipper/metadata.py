@@ -7,6 +7,7 @@ import re
 from .config import MetadataCfg
 from .log import get_logger
 from .models import ClipCandidate, VideoMetadata
+from .profanity import censor
 
 log = get_logger("metadata")
 
@@ -33,7 +34,8 @@ Output fields:
 - description: 1–2 sentences about the moment, written in {language}. Do NOT include links or credit – they are added automatically.
 - hashtags: 3–5 relevant hashtags, each starting with #, no spaces. Always include #GTA6.
 
-Write everything in {language}. Never invent events that are not supported by the transcript or clip title."""
+Write everything in {language}. Never invent events that are not supported by the transcript or clip title.
+Never use profanity, slurs or sexual wording in any field (keep it advertiser-friendly), even if the streamer swears."""
 
 
 def credit_block(c: ClipCandidate) -> str:
@@ -68,7 +70,8 @@ def _clean_tags(tags: list[str]) -> list[str]:
 
 
 def assemble(c: ClipCandidate, title: str, hook: str, desc: str, tags: list[str],
-             cfg: MetadataCfg, source: str) -> VideoMetadata:
+             cfg: MetadataCfg, source: str, language: str = "en") -> VideoMetadata:
+    title, hook, desc = censor(title, language), censor(hook, language), censor(desc, language)
     tags = _clean_tags(tags)
     description = f"{desc.strip()}\n\n{credit_block(c)}\n\n{' '.join(tags)}\n#Shorts"
     return VideoMetadata(
@@ -87,7 +90,7 @@ def fallback(c: ClipCandidate, cfg: MetadataCfg, language: str = "en") -> VideoM
         title, hook, desc = f"{c.streamer_display} in GTA 6 😳", "Wait for it…", f"Wild moment from {c.streamer_display}'s GTA 6 stream."
     if c.title and len(c.title) < 45:
         title = f"{c.title.strip()} – {c.streamer_display}"
-    return assemble(c, title, hook, desc, ["#GTA6", "#GTAVI", "#Gaming"], cfg, "fallback")
+    return assemble(c, title, hook, desc, ["#GTA6", "#GTAVI", "#Gaming"], cfg, "fallback", language)
 
 
 def generate(c: ClipCandidate, transcript: str, cfg: MetadataCfg, language: str,
@@ -124,7 +127,7 @@ def generate(c: ClipCandidate, transcript: str, cfg: MetadataCfg, language: str,
             raise ValueError("svaret trunkerades")
         text = next(b.text for b in resp.content if b.type == "text")
         data = json.loads(text)
-        meta = assemble(c, data["title"], data["hook"], data["description"], data["hashtags"], cfg, "claude")
+        meta = assemble(c, data["title"], data["hook"], data["description"], data["hashtags"], cfg, "claude", language)
         log.info("metadata från claude", extra={"clip": c.key, "title": meta.title})
         return meta
     except Exception as e:  # noqa: BLE001 – medvetet bred: fallback vid alla API-/parsefel

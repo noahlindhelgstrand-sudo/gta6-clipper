@@ -130,3 +130,18 @@ def test_failed_clip_is_retried_max_three_times(cfg):
         with Pipeline(cfg, deps) as p:
             p.prepare()
     assert list(attempts.values()) == [3]
+
+
+def test_outdated_renders_are_rerendered(cfg):
+    clock = {"t": datetime(2026, 11, 20, 0, 7, tzinfo=timezone.utc)}
+    deps = make_deps(cfg, clock)
+    with Pipeline(cfg, deps) as p:
+        p.prepare()
+        n = p.db.count_status("rendered")
+        assert n > 0
+        p.db.kv_set("render_version", "1-old")
+    with Pipeline(cfg, deps) as p:
+        p.rerender_outdated()
+        assert p.db.count_status("rendered") == 0
+        assert deps.store.list_videos() == []
+        assert len(p.known_keys()) < len(p.db.known_keys())    # får väljas igen

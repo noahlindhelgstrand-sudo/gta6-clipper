@@ -80,6 +80,7 @@ class RenderCfg(BaseModel):
     hook_intro_s: float = 0.5
     hook_overlay_s: float = 3.0
     font: str = "DejaVu Sans"
+    censor_profanity: bool = True     # f*** i undertexter (bättre monetisering)
 
 
 class TranscribeCfg(BaseModel):
