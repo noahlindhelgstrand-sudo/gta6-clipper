@@ -174,3 +174,22 @@ def test_non_english_clips_skipped_and_streamer_dropped(cfg):
         assert skipped >= 1
         assert "twitch:alpha_streams" not in p.allowed()   # tas bort efter 2 fel
         assert len(rendered) >= 3
+
+
+def test_upload_now_outside_schedule_once_per_run(cfg):
+    clock = {"t": datetime(2026, 11, 20, 0, 7, tzinfo=timezone.utc)}
+    deps = make_deps(cfg, clock)
+    with Pipeline(cfg, deps) as p:
+        p.prepare()
+    clock["t"] = datetime(2026, 11, 20, 8, 30, tzinfo=timezone.utc)   # 09:30 lokal, ingen slot
+    with Pipeline(cfg, deps) as p:
+        assert p.publish()["posted"] is None
+        r = p.publish(now_upload=True)
+        assert r["posted"] and r["posted"]["slot"].startswith("manual ")
+    assert len(deps.publishers[0].uploaded) == 1
+    keys = [k for k, _ in deps.publishers[0].uploaded]
+    clock["t"] += timedelta(seconds=5)
+    with Pipeline(cfg, deps) as p:
+        p.publish(now_upload=True)
+    keys2 = [k for k, _ in deps.publishers[0].uploaded]
+    assert len(keys2) == 2 and len(set(keys2)) == 2 and keys2[0] == keys[0]   # aldrig samma klipp igen

@@ -10,6 +10,10 @@ on:
         description: "Dry-run (logga istället för att ladda upp)"
         type: boolean
         default: false
+      upload_now:
+        description: "Ladda upp bästa klippet i kön DIREKT (test), oavsett schema"
+        type: boolean
+        default: false
       resume:
         description: "Återuppta uppladdningar efter automatisk paus (copyright-skydd)"
         type: boolean
@@ -48,4 +52,4 @@ jobs:
         run: |
           if [ "${{ inputs.resume }}" = "true" ]; then clipper resume; fi
           if [ -n "$UNBLOCK" ]; then clipper unblock "$UNBLOCK"; fi
-          clipper ${{ inputs.dry_run && '--dry-run' || '' }} publish
+          clipper ${{ inputs.dry_run && '--dry-run' || '' }} publish ${{ inputs.upload_now && '--now' || '' }}

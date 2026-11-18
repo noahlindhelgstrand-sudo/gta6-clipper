@@ -378,7 +378,8 @@ class Pipeline:
                     self.db.finish_slot(slot_key, "failed")
             self.save()
 
-    def publish(self) -> dict:
+    def publish(self, now_upload: bool = False) -> dict:
+        """now_upload=True: ladda upp direkt (manuellt test), utanför schemat."""
         now = self.d.now()
         result: dict = {"posted": None}
         try:
@@ -411,6 +412,10 @@ class Pipeline:
         if slot and slot.utc < started:
             self.db.skip_slot(slot.key, "före första körningen")
             slot = None
+        if now_upload:
+            local = now.astimezone(ZoneInfo(self.cfg.timezone))
+            slot = scheduler.Slot(f"manual {local:%Y-%m-%d %H:%M:%S}", local, now)
+            log.info("manuell uppladdning (upload_now)", extra={"slot": slot.key})
         if not slot:
             log.info("ingen slot aktuell", extra={"now_local": now.astimezone(ZoneInfo(self.cfg.timezone)).isoformat()})
             self.maybe_daily_summary()

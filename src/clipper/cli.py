@@ -85,7 +85,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--log-level", default="INFO")
     sub = ap.add_subparsers(dest="cmd", required=True)
     sub.add_parser("prepare", help="hämta, rendera och fyll bufferten")
-    sub.add_parser("publish", help="posta om en slot är aktuell")
+    pp = sub.add_parser("publish", help="posta om en slot är aktuell")
+    pp.add_argument("--now", action="store_true", help="ladda upp bästa klippet direkt (test), utanför schemat")
     sub.add_parser("summary", help="skicka daglig sammanfattning nu")
     sub.add_parser("status", help="visa kö och senaste postningar")
     sub.add_parser("discover", help="uppdatera listan över toppstreamers nu")
@@ -117,7 +118,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.cmd == "prepare":
                 out = p.prepare()
             elif args.cmd == "publish":
-                out = p.publish()
+                out = p.publish(now_upload=getattr(args, "now", False))
             elif args.cmd == "summary":
                 out = {"summary": p.maybe_daily_summary(force=True)}
             elif args.cmd == "resume":
