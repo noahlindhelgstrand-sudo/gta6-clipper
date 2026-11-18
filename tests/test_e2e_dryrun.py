@@ -145,3 +145,32 @@ def test_outdated_renders_are_rerendered(cfg):
         assert p.db.count_status("rendered") == 0
         assert deps.store.list_videos() == []
         assert len(p.known_keys()) < len(p.db.known_keys())    # får väljas igen
+
+
+def test_non_english_clips_skipped_and_streamer_dropped(cfg):
+    from clipper.transcribe import Transcript, Word
+    clock = {"t": datetime(2026, 11, 20, 0, 7, tzinfo=timezone.utc)}
+    deps = make_deps(cfg, clock)
+    deps.sources = [deps.sources[0]]                 # bara twitch-mocken
+
+    def lang_by_streamer(path, *a, **kw):
+        lang = "ru" if "_0" in str(path) else "en"   # streamer index 0 pratar ryska
+        return Transcript("hej", [Word(0.1, 0.5, "hej")], lang)
+
+    def dl(url, d, n):
+        p = mocks.fake_download(url, d, n, seconds=2)
+        new = p.with_name(f"{url.rsplit('/', 1)[-1]}.mp4")
+        p.rename(new)
+        return new
+    deps.download, deps.transcribe = dl, lang_by_streamer
+    for _ in range(4):
+        with Pipeline(cfg, deps) as p:
+            r = p.prepare()
+        clock["t"] += timedelta(hours=1)
+    with Pipeline(cfg, deps) as p:
+        rendered = [r["streamer"] for r in p.db.rendered_queue()]
+        skipped = p.db.count_status("skipped")
+        assert "alpha_streams" not in rendered       # index 0
+        assert skipped >= 1
+        assert "twitch:alpha_streams" not in p.allowed()   # tas bort efter 2 fel
+        assert len(rendered) >= 3

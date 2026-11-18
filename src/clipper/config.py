@@ -33,6 +33,7 @@ class SelectionCfg(BaseModel):
     max_duration_s: float = 60
     max_candidates_per_run: int = 3
     max_per_streamer_per_day: int = 1
+    spoken_languages: list[str] = Field(default_factory=lambda: ["en"])  # tom = alla
 
 
 class FacecamRect(BaseModel):

@@ -25,6 +25,7 @@ selection:
   max_duration_s: 60
   max_candidates_per_run: 3      # hur många nya klipp som laddas ner/renderas per prepare-körning
   max_per_streamer_per_day: 1    # variation: inte bara samma streamer hela dagen
+  spoken_languages: ["en"]       # Whisper kontrollerar talat språk; andra språk hoppas över
 
 streamers:
   # policy:

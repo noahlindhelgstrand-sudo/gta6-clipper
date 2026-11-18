@@ -71,8 +71,10 @@ Du behöver alltså inte lägga in några namn. Kör `clipper status` om du vill
 Allowlist läggs till ovanpå, och blocklist vinner alltid.
 
 ### Urval
-- Klipp från de senaste 24 timmarna med minst `min_views` visningar, 15–60 sekunder långa och på
-  rätt språk (Twitch).
+- Klipp från de senaste 24 timmarna med minst `min_views` visningar och 15–60 sekunder långa.
+- **Bara engelska:** Twitch-klipp filtreras på kanalens språk, och dessutom kontrollerar Whisper det
+  språk som faktiskt talas (`selection.spoken_languages`). Klipp på andra språk hoppas över, och
+  streamers vars klipp upprepade gånger är på fel språk tas bort automatiskt.
 - Klippen rankas efter **views per timme** sedan de skapades, så att nya virala klipp går före gamla.
 - Högst ett klipp per streamer och körning ger variation.
 - Klipp som redan finns i databasen ignoreras alltid.

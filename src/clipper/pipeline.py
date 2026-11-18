@@ -105,7 +105,9 @@ class Pipeline:
         top: list[str] = []
         for src in self.d.sources:
             top += [r["streamer_key"] for r in self.db.top_streamers(src.platform, self.cfg.streamers.top_n)]
-        return allowed_streamers(self.cfg.streamers, top)
+        # Streamers vars klipp upprepade gånger varit på fel språk tas bort automatiskt
+        wrong_lang = {k for k in top if int(self.db.kv_get(f"nonlang:{k}") or 0) >= 2}
+        return allowed_streamers(self.cfg.streamers, top) - wrong_lang
 
     def expire_old(self) -> None:
         cutoff = self.d.now() - timedelta(hours=self.cfg.queue.max_age_hours)
@@ -124,13 +126,29 @@ class Pipeline:
                  if int(self.db.kv_get(f"fail:{r['key']}") or 0) < self.MAX_ATTEMPTS}
         return self.db.known_keys() - retry
 
-    def process_clip(self, c: ClipCandidate) -> bool:
+    def _language_ok(self, c: ClipCandidate, tr: Transcript) -> bool:
+        allowed = [l.lower() for l in self.cfg.selection.spoken_languages]
+        if not allowed or not tr.words or not tr.language:
+            return True                       # inget tal (bara gameplay) är okej
+        if tr.language.lower() in allowed:
+            return True
+        n = int(self.db.kv_get(f"nonlang:{c.streamer_key}") or 0) + 1
+        self.db.kv_set(f"nonlang:{c.streamer_key}", str(n))
+        log.info("fel språk – hoppar över", extra={"clip": c.key, "language": tr.language,
+                                                   "streamer": c.streamer_key})
+        return False
+
+    def process_clip(self, c: ClipCandidate) -> str:
+        """Returnerar 'rendered', 'skipped' eller 'failed'."""
         clip_dir = self.work / "clips" / c.key.replace(":", "_")
         try:
             raw = self.d.download(c.url, clip_dir, "raw")
             tr: Transcript = self.d.transcribe(raw, self.cfg.transcribe.model, self.cfg.transcribe.device,
                                                self.cfg.transcribe.compute_type,
                                                self.cfg.render.max_duration_s - self.cfg.render.hook_intro_s)
+            if not self._language_ok(c, tr):
+                self.db.set_status(c.key, "skipped", f"talat språk: {tr.language}")
+                return "skipped"
             meta = self.d.metadata(c, tr.text, self.cfg.metadata, self.cfg.language,
                                    self.cfg.secrets.anthropic_api_key, client=self.d.anthropic_client)
             facecam = self.cfg.streamers.facecam.get(c.streamer_key)
@@ -142,13 +160,13 @@ class Pipeline:
             self.db.mark_rendered(c.key, out_name, tr.text, meta)
             log.info("klipp klart i kön", extra={"clip": c.key, "title": meta.title, "score": c.score,
                                                  "bytes": Path(out).stat().st_size})
-            return True
+            return "rendered"
         except Exception as e:  # noqa: BLE001 – ett trasigt klipp ska inte stoppa resten
             log.exception("klipp misslyckades", extra={"clip": c.key})
             self.db.set_status(c.key, "failed", str(e)[:1000])
             fails = int(self.db.kv_get(f"fail:{c.key}") or 0) + 1
             self.db.kv_set(f"fail:{c.key}", str(fails))
-            return False
+            return "failed"
         finally:
             shutil.rmtree(clip_dir, ignore_errors=True)
 
@@ -171,7 +189,7 @@ class Pipeline:
         self.expire_old()
         self.discover_streamers()
         buffer = self.db.count_status("rendered")
-        result = {"buffer_before": buffer, "rendered": 0, "failed": 0}
+        result = {"buffer_before": buffer, "rendered": 0, "failed": 0, "skipped": 0}
         need = self.cfg.queue.buffer_target - buffer
         if need <= 0:
             log.info("bufferten är full – inget att göra", extra={"buffer": buffer})
@@ -182,16 +200,17 @@ class Pipeline:
         clips = self._fetch_all(now - timedelta(hours=self.cfg.selection.lookback_hours), now, max_clips=500)
         langs = {"twitch": self.cfg.sources.twitch.clip_languages}
         allowed = self.allowed()
-        chosen = select(clips, self.cfg.selection, self.cfg.streamers, allowed, self.known_keys(), langs, now)
-        chosen = chosen[:need]
+        need = min(need, self.cfg.selection.max_candidates_per_run)
+        # Hämta extra kandidater i reserv ifall några hoppas över (fel språk) eller misslyckas
+        sel = self.cfg.selection.model_copy(update={"max_candidates_per_run": need * 4})
+        chosen = select(clips, sel, self.cfg.streamers, allowed, self.known_keys(), langs, now)
         log.info("urval klart", extra={"fetched": len(clips), "allowed_streamers": len(allowed),
                                        "chosen": [f"{c.key} score={c.score}" for c in chosen]})
         for c in chosen:
+            if result["rendered"] >= need:
+                break
             self.db.insert_candidate(c)
-            if self.process_clip(c):
-                result["rendered"] += 1
-            else:
-                result["failed"] += 1
+            result[self.process_clip(c)] += 1
             self.save()                     # spara efter varje klipp – en krasch tappar max ett
 
         buffer = self.db.count_status("rendered")
