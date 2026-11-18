@@ -83,5 +83,5 @@ class FakeAnthropic:
         from types import SimpleNamespace
         text = json.dumps({"title": "He did NOT expect the cops to do this 😳", "hook": "Wait for it…",
                            "description": "Chaos in Vice City.", "hashtags": ["#GTA6", "#GTAVI", "#Gaming", "#ViceCity"],
-                           "suggestive": self.suggestive, "interest": 7})
+                           "suggestive": self.suggestive})
         return SimpleNamespace(stop_reason="end_turn", content=[SimpleNamespace(type="text", text=text)])

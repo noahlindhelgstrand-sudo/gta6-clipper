@@ -80,20 +80,14 @@ Allowlist läggs till ovanpå, och blocklist vinner alltid.
 - Klipp som redan finns i databasen ignoreras alltid.
 
 ### Rendering (tillför eget värde)
-- **9:16, 1080x1920, max 45 s, upp till 60 fps.** Källans bildfrekvens behålls, och bilden kodas med
-  hög kvalitet (CRF 20, max 12 Mbit/s).
-- **Automatisk facecam:** OpenCV letar efter ett ansikte som står still på samma plats genom klippet
-  (streamerns kamera). Ansikten i spelet rör sig och sorteras bort.
-  - Hittas en kamera blir layouten **kamera överst och gameplay under**, med undertexterna i skarven.
-  - Hittas ingen kamera blir layouten **stor gameplay i mitten** med blurrad bakgrund.
-  - Du kan ange kamerans position manuellt per streamer i `streamers.facecam`.
-- **Ljud** normaliseras till −14 LUFS, samma nivå som YouTube spelar upp på.
-- **Hook-text** visas överst de första 3 sekunderna, skriven av Claude.
-- **Ord-för-ord-undertexter** från faster-whisper (modellen `small`) med typsnittet Montserrat
-  ExtraBold. Det aktiva ordet är gult och svordomar censureras.
+- **9:16, 1080x1920, max 45 s.** Den blurrade bakgrunden är samma video förstorad, och gameplay ligger
+  skarpt i mitten, lätt inzoomat.
+- **Facecam** läggs under gameplay om du anger kamerans position för streamern i config.
+- **Hook-intro**: de första 0,5 s visar en fryst första bildruta med en hook-text som Claude har skrivit.
+  Hooken ligger kvar överst i 3 s.
+- **Ord-för-ord-undertexter** från faster-whisper (CPU, int8). Upp till 3 ord visas åt gången, och
+  ordet som sägs just nu är gult. Texten ligger i nedre tredjedelen.
 - **Credit i bild**, t.ex. `twitch.tv/streamer`.
-- **Tråkiga klipp sorteras bort:** Claude betygsätter varje klipp 1–10 utifrån bildrutor och
-  transkript, och klipp under `selection.min_interest` (4) hoppas över. Det kräver `ANTHROPIC_API_KEY`.
 
 ### Suggestivt innehåll (strippklubb o.d.)
 Claude får 4 bildrutor ur varje klipp och flaggar sexuellt eller suggestivt innehåll. Utan Claude-nyckel

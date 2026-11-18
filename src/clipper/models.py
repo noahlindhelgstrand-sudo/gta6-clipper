@@ -37,4 +37,3 @@ class VideoMetadata:
     hook: str = ""
     generated_by: str = "fallback"   # "claude" | "fallback"
     suggestive: bool = False         # sexuellt/suggestivt innehåll (strippklubb, nakenhet ...)
-    interest: int = 0                # 1–10 hur sevärt klippet är enligt Claude (0 = okänt)

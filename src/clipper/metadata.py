@@ -31,9 +31,8 @@ SCHEMA = {
         "description": {"type": "string"},
         "hashtags": {"type": "array", "items": {"type": "string"}},
         "suggestive": {"type": "boolean"},
-        "interest": {"type": "integer"},
     },
-    "required": ["title", "hook", "description", "hashtags", "suggestive", "interest"],
+    "required": ["title", "hook", "description", "hashtags", "suggestive"],
     "additionalProperties": False,
 }
 
@@ -48,9 +47,6 @@ Output fields:
 - suggestive: true if the clip (judge mainly the attached frames) shows sexual or suggestive content:
   strip club, lap/private dance, nudity or near-nudity, sex acts or sexual innuendo as the main focus.
   Ordinary violence, driving, police chases, swearing and jokes are NOT suggestive.
-- interest: 1–10, how likely a random viewer keeps watching this as a Short. 1–3 = boring (menus, loading
-  screens, character creator, standing still, nothing happening); 4–6 = okay; 7–10 = funny, chaotic,
-  surprising or impressive gameplay moment or a strong streamer reaction.
 
 Write everything in {language}. Never invent events that are not supported by the transcript or clip title.
 Never use profanity, slurs or sexual wording in any field (keep it advertiser-friendly), even if the streamer swears."""
@@ -160,7 +156,6 @@ def generate(c: ClipCandidate, transcript: str, cfg: MetadataCfg, language: str,
         data = json.loads(text)
         meta = assemble(c, data["title"], data["hook"], data["description"], data["hashtags"], cfg, "claude", language)
         meta.suggestive = bool(data.get("suggestive")) or looks_suggestive(c.title, transcript)
-        meta.interest = max(1, min(10, int(data.get("interest") or 0))) if data.get("interest") else 0
         log.info("metadata från claude", extra={"clip": c.key, "title": meta.title, "suggestive": meta.suggestive})
         return meta
     except Exception as e:  # noqa: BLE001 – medvetet bred: fallback vid alla API-/parsefel

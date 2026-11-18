@@ -26,7 +26,6 @@ selection:
   max_candidates_per_run: 3      # hur många nya klipp som laddas ner/renderas per prepare-körning
   max_per_streamer_per_day: 1    # variation: inte bara samma streamer hela dagen
   spoken_languages: ["en"]       # Whisper kontrollerar talat språk; andra språk hoppas över
-  min_interest: 4                # Claude betygsätter 1–10 hur sevärt klippet är; tråkiga hoppas över
 
 streamers:
   # policy:
@@ -50,21 +49,17 @@ render:
   width: 1080
   height: 1920
   max_duration_s: 45
-  fps: 60                        # max fps – källans 60 fps behålls (mjukare video)
-  crf: 20                        # bildkvalitet: lägre = bättre (18–23)
-  preset: medium
-  max_bitrate: 12M
-  audio_bitrate: 160k
-  hook_intro_s: 0                # 0 = hooken visas direkt över rörlig video (bäst för tittartid)
+  fps: 30
+  crf: 26
+  preset: veryfast
+  audio_bitrate: 128k
+  hook_intro_s: 0.5              # fryst första bildruta med hook-text
   hook_overlay_s: 3.0            # hook-text ligger kvar överst så här länge
-  font: "Montserrat ExtraBold"
+  font: "DejaVu Sans"
   censor_profanity: true         # svordomar i undertexter/titlar blir f***
-  auto_facecam: true             # hitta streamerns kamera automatiskt -> kamera överst, gameplay under
-  facecam_height: 700
-  nocam_gameplay_height: 1150
 
 transcribe:
-  model: small                   # small = bättre undertexter (base = snabbare)
+  model: base                    # base | small
   compute_type: int8
   device: cpu
 

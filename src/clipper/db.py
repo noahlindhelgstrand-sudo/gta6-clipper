@@ -140,9 +140,7 @@ class Database:
     def rendered_queue(self) -> list[sqlite3.Row]:
         """Renderade klipp, högst rankade först."""
         return list(self.conn.execute(
-            """SELECT * FROM clips WHERE status='rendered'
-               ORDER BY score * (1 + COALESCE(json_extract(meta_json, '$.interest'), 0) / 5.0) DESC,
-                        rendered_at ASC"""
+            "SELECT * FROM clips WHERE status='rendered' ORDER BY score DESC, rendered_at ASC"
         ))
 
     def count_status(self, status: str) -> int:
