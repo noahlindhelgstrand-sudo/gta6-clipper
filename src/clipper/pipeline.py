@@ -253,14 +253,16 @@ class Pipeline:
         if not first_seen:
             first_seen = _iso(now)
             self.db.kv_set("first_publish_run", first_seen)
+        # Slots som passerade mer än 1 h innan systemet startade räknas inte (normal cron-fördröjning tolereras)
+        started = datetime.fromisoformat(first_seen) - timedelta(hours=1)
         for m in scheduler.missed_slots(now, sc.slots, self.cfg.timezone, sc.grace_hours, self._slot_is_used):
-            if m.utc < datetime.fromisoformat(first_seen):
+            if m.utc < started:
                 self.db.skip_slot(m.key, "före första körningen")
                 continue
             self.db.skip_slot(m.key, "missad (ingen körning/tom kö inom grace)")
             self.d.notifier.warning("Slot missad", f"{m.key} postades inte inom {sc.grace_hours} h.")
         slot = scheduler.due_slot(now, sc.slots, self.cfg.timezone, sc.grace_hours, self._slot_is_used)
-        if slot and slot.utc < datetime.fromisoformat(first_seen):
+        if slot and slot.utc < started:
             self.db.skip_slot(slot.key, "före första körningen")
             slot = None
         if not slot:
