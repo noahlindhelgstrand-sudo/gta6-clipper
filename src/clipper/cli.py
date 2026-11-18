@@ -89,6 +89,9 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("summary", help="skicka daglig sammanfattning nu")
     sub.add_parser("status", help="visa kö och senaste postningar")
     sub.add_parser("discover", help="uppdatera listan över toppstreamers nu")
+    sub.add_parser("resume", help="återuppta uppladdningar efter automatisk paus")
+    ub = sub.add_parser("unblock", help="ta bort en automatiskt blockerad streamer")
+    ub.add_argument("streamer", help="t.ex. twitch:xqc")
     d = sub.add_parser("demo", help="dry-run end-to-end med mockade API:er")
     d.add_argument("--days", type=int, default=2)
     args = ap.parse_args(argv)
@@ -100,6 +103,8 @@ def main(argv: list[str] | None = None) -> int:
         return run_demo(cfg, args.days)
 
     need_pub = args.cmd == "publish"
+    if args.cmd in ("resume", "unblock"):
+        args.dry_run = False
     try:
         deps = build_deps(cfg, args.dry_run, need_publishers=need_pub)
     except Exception as e:  # noqa: BLE001
@@ -115,11 +120,17 @@ def main(argv: list[str] | None = None) -> int:
                 out = p.publish()
             elif args.cmd == "summary":
                 out = {"summary": p.maybe_daily_summary(force=True)}
+            elif args.cmd == "resume":
+                out = {"resumed": p.resume()}
+            elif args.cmd == "unblock":
+                out = {"unblocked": p.unblock_streamer(args.streamer.lower())}
             elif args.cmd == "discover":
                 p.discover_streamers(force=True)
                 out = {"allowed": sorted(p.allowed())}
             else:
                 out = {
+                    "paused": p.paused(),
+                    "auto_blocked": sorted(p.auto_blocked()),
                     "queue": [dict(key=r["key"], score=r["score"], title=json.loads(r["meta_json"])["title"])
                               for r in p.db.rendered_queue()],
                     "posts": [dict(r) for r in p.db.posts_between("0", "9")][-10:],

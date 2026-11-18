@@ -10,7 +10,7 @@ from ..config import PublishCfg
 from ..log import get_logger
 from ..models import VideoMetadata
 from .base import (AuthExpiredError, PublishError, Publisher, QuotaExceededError, UploadResult,
-                   clip_ref)
+                   VideoHealth, clip_ref)
 
 log = get_logger("youtube")
 
@@ -149,3 +149,38 @@ class YouTubePublisher(Publisher):
                 privacy = v.get("status", {}).get("privacyStatus", "private")
                 return UploadResult(v["id"], f"https://youtube.com/shorts/{v['id']}", privacy)
         return None
+
+    # rejectionReason som tyder på upphovsrätt/policy (allvarligt). "duplicate"/"length" är tekniska.
+    SEVERE_REJECTIONS = {"copyright", "legal", "trademark", "termsOfUse", "inappropriate",
+                         "uploaderAccountSuspended", "uploaderAccountClosed", "claim"}
+
+    def check_health(self, external_ids: list[str]) -> dict[str, VideoHealth]:
+        out: dict[str, VideoHealth] = {}
+        for i in range(0, len(external_ids), 50):
+            batch = external_ids[i:i + 50]
+            try:
+                items = self.yt.videos().list(part="status,contentDetails", id=",".join(batch),
+                                              maxResults=50).execute().get("items", [])
+            except Exception as e:  # noqa: BLE001
+                err = self._classify(e)
+                if isinstance(err, (AuthExpiredError, QuotaExceededError)):
+                    raise err from e
+                raise PublishError(f"kunde inte kontrollera videostatus: {e}") from e
+            found = {v["id"]: v for v in items}
+            for vid in batch:
+                v = found.get(vid)
+                if v is None:
+                    out[vid] = VideoHealth("removed", "videon finns inte längre (borttagen av YouTube eller manuellt)")
+                    continue
+                st, cd = v.get("status", {}), v.get("contentDetails", {})
+                if st.get("uploadStatus") == "rejected":
+                    reason = st.get("rejectionReason", "okänd")
+                    out[vid] = VideoHealth("rejected" if reason in self.SEVERE_REJECTIONS else "ok", f"avvisad: {reason}")
+                elif (cd.get("regionRestriction") or {}).get("blocked"):
+                    n = len(cd["regionRestriction"]["blocked"])
+                    out[vid] = VideoHealth("claimed", f"blockerad i {n} länder (troligen musik-/upphovsrättsanspråk)")
+                elif (cd.get("contentRating") or {}).get("ytRating") == "ytAgeRestricted":
+                    out[vid] = VideoHealth("age_restricted", "åldersbegränsad av YouTube")
+                else:
+                    out[vid] = VideoHealth("ok")
+        return out

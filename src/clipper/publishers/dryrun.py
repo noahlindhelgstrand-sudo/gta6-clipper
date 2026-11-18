@@ -5,7 +5,7 @@ from pathlib import Path
 
 from ..log import get_logger
 from ..models import VideoMetadata
-from .base import Publisher, UploadResult, clip_ref
+from .base import Publisher, UploadResult, VideoHealth, clip_ref
 
 log = get_logger("dryrun")
 
@@ -27,3 +27,6 @@ class DryRunPublisher(Publisher):
 
     def find_existing(self, clip_key: str) -> UploadResult | None:
         return None
+
+    def check_health(self, external_ids: list[str]) -> dict[str, VideoHealth]:
+        return {vid: VideoHealth("ok") for vid in external_ids}

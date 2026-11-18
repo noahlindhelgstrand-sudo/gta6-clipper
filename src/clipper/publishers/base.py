@@ -18,6 +18,19 @@ class UploadResult:
     locked_private: bool = False
 
 
+@dataclass
+class VideoHealth:
+    """Status för en redan uppladdad video.
+    state: ok | removed | rejected | claimed | age_restricted"""
+    state: str
+    reason: str = ""
+
+    @property
+    def severe(self) -> bool:
+        """Allvarligt = trolig copyright-strike eller policybrott → pausa uppladdningar."""
+        return self.state in ("removed", "rejected")
+
+
 class PublishError(RuntimeError):
     """Generellt fel vid publicering."""
 
@@ -45,3 +58,7 @@ class Publisher(ABC):
     @abstractmethod
     def find_existing(self, clip_key: str) -> UploadResult | None:
         """Kolla om ett klipp redan laddats upp (t.ex. om förra körningen kraschade mitt i)."""
+
+    def check_health(self, external_ids: list[str]) -> dict[str, VideoHealth]:
+        """Status för redan uppladdade videor. Plattformar utan stöd returnerar {} (ingen kontroll)."""
+        return {}

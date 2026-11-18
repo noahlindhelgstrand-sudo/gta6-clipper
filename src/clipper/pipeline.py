@@ -109,7 +109,7 @@ class Pipeline:
             top += [r["streamer_key"] for r in self.db.top_streamers(src.platform, self.cfg.streamers.top_n)]
         # Streamers vars klipp upprepade gånger varit på fel språk tas bort automatiskt
         wrong_lang = {k for k in top if int(self.db.kv_get(f"nonlang:{k}") or 0) >= 2}
-        return allowed_streamers(self.cfg.streamers, top) - wrong_lang
+        return allowed_streamers(self.cfg.streamers, top) - wrong_lang - self.auto_blocked()
 
     def expire_old(self) -> None:
         cutoff = self.d.now() - timedelta(hours=self.cfg.queue.max_age_hours)
@@ -249,6 +249,74 @@ class Pipeline:
                                     f"{buffer} renderade klipp i kön (min {self.cfg.queue.buffer_min}).")
         return result
 
+    # ---------- SKYDD: borttagna/avvisade videor ----------
+    HEALTH_WINDOW_DAYS = 30
+
+    def auto_blocked(self) -> set[str]:
+        return {r["k"][len("blocked:"):] for r in self.db.conn.execute("SELECT k FROM kv WHERE k LIKE 'blocked:%'")}
+
+    def block_streamer(self, streamer_key: str, reason: str) -> None:
+        self.db.kv_set(f"blocked:{streamer_key}", reason)
+        platform, streamer = streamer_key.split(":", 1)
+        for row in self.db.rendered_queue():           # ta bort deras klipp ur kön
+            if row["platform"] == platform and row["streamer"] == streamer:
+                self.d.store.delete_video(row["video_file"])
+                self.db.set_status(row["key"], "skipped", f"streamer blockerad: {reason}")
+        log.warning("streamer blockerad automatiskt", extra={"streamer": streamer_key, "reason": reason})
+
+    def unblock_streamer(self, streamer_key: str) -> bool:
+        existed = self.db.kv_get(f"blocked:{streamer_key}") is not None
+        self.db.conn.execute("DELETE FROM kv WHERE k=?", (f"blocked:{streamer_key}",))
+        return existed
+
+    def paused(self) -> str | None:
+        return self.db.kv_get("paused")
+
+    def pause(self, reason: str) -> None:
+        self.db.kv_set("paused", reason)
+
+    def resume(self) -> bool:
+        was = self.paused() is not None
+        self.db.conn.execute("DELETE FROM kv WHERE k='paused'")
+        return was
+
+    def health_check(self) -> list[str]:
+        """Kontrollera senaste 30 dagarnas uppladdningar. En borttagen eller avvisad video
+        (typiskt en copyright-strike) pausar alla uppladdningar och blockerar streamern."""
+        since = _iso(self.d.now() - timedelta(days=self.HEALTH_WINDOW_DAYS))
+        problems = []
+        for pub in self.d.publishers:
+            rows = self.db.conn.execute(
+                """SELECT p.clip_key, p.external_id, p.url, c.platform, c.streamer, c.streamer_display
+                   FROM posts p JOIN clips c ON c.key=p.clip_key
+                   WHERE p.platform=? AND p.posted_at>=? AND p.external_id IS NOT NULL""",
+                (pub.name, since)).fetchall()
+            rows = [r for r in rows if not self.db.kv_get(f"health:{pub.name}:{r['external_id']}")]
+            if not rows:
+                continue
+            health = pub.check_health([r["external_id"] for r in rows])
+            for r in rows:
+                h = health.get(r["external_id"])
+                if not h or h.state == "ok":
+                    continue
+                self.db.kv_set(f"health:{pub.name}:{r['external_id']}", h.state)   # rapportera bara en gång
+                skey = f"{r['platform']}:{r['streamer']}"
+                text = f"{r['url']} ({r['streamer_display']}): {h.reason}"
+                problems.append(text)
+                if h.severe:
+                    self.block_streamer(skey, h.reason)
+                    self.pause(f"{h.state}: {text}")
+                    self.d.notifier.error(
+                        "Video borttagen/avvisad – uppladdningar PAUSADE",
+                        f"{text}\n\nTrolig copyright-strike eller policybrott. Streamern {skey} är blockerad "
+                        "och inga fler videor laddas upp.\n\nKontrollera YouTube Studio → Innehåll och "
+                        "Kanalinställningar → Status. Återuppta sedan via Actions → publish → Run workflow → "
+                        "kryssa i 'resume'.")
+                else:
+                    self.d.notifier.warning(f"Video {'åldersbegränsad' if h.state == 'age_restricted' else 'har anspråk'}",
+                                            text)
+        return problems
+
     # ---------- PUBLISH ----------
     def _slot_is_used(self, key: str) -> bool:
         return self.db.slot(key) is not None
@@ -318,6 +386,13 @@ class Pipeline:
         except (AuthExpiredError, QuotaExceededError) as e:
             self._fatal(e)
             return result
+        try:
+            result["health_problems"] = self.health_check()
+        except (AuthExpiredError, QuotaExceededError) as e:
+            self._fatal(e)
+            return result
+        except PublishError as e:
+            log.warning("hälsokontroll misslyckades – fortsätter", extra={"error": str(e)})
 
         sc = self.cfg.schedule
         first_seen = self.db.kv_get("first_publish_run")
@@ -341,6 +416,15 @@ class Pipeline:
             self.maybe_daily_summary()
             return result
 
+        if self.paused():
+            flag = f"paused_notified:{now.astimezone(ZoneInfo(self.cfg.timezone)).date()}"
+            if not self.db.kv_get(flag):
+                self.d.notifier.error("Uppladdningar är pausade", f"Orsak: {self.paused()}\n"
+                                      "Återuppta via Actions → publish → Run workflow → kryssa i 'resume'.")
+                self.db.kv_set(flag, "1")
+            log.warning("pausad – laddar inte upp", extra={"reason": self.paused(), "slot": slot.key})
+            result["paused"] = self.paused()
+            return result
         clip = self.pick_for_upload()
         if clip is None:
             flag = f"empty_notified:{slot.key}"

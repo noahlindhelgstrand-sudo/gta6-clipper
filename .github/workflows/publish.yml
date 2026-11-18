@@ -10,6 +10,14 @@ on:
         description: "Dry-run (logga istället för att ladda upp)"
         type: boolean
         default: false
+      resume:
+        description: "Återuppta uppladdningar efter automatisk paus (copyright-skydd)"
+        type: boolean
+        default: false
+      unblock:
+        description: "Avblockera streamer, t.ex. twitch:xqc (lämna tomt annars)"
+        type: string
+        default: ""
 
 concurrency:
   group: clipper-state
@@ -36,4 +44,8 @@ jobs:
           YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: clipper ${{ inputs.dry_run && '--dry-run' || '' }} publish
+          UNBLOCK: ${{ inputs.unblock }}
+        run: |
+          if [ "${{ inputs.resume }}" = "true" ]; then clipper resume; fi
+          if [ -n "$UNBLOCK" ]; then clipper unblock "$UNBLOCK"; fi
+          clipper ${{ inputs.dry_run && '--dry-run' || '' }} publish

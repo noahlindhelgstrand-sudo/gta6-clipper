@@ -97,6 +97,22 @@ i bild.
 - Högst **1** suggestiv uppladdning per dygn (`publish.max_suggestive_per_day`). Övriga uppladdningar
   tas från annat innehåll.
 
+### Copyright-skydd (automatisk paus)
+Varje `publish`-körning kontrollerar de senaste 30 dagarnas uppladdningar via YouTubes API.
+
+| Upptäckt | Åtgärd |
+|---|---|
+| Videon är **borttagen** eller **avvisad** för upphovsrätt/policy (typiskt en copyright-strike) | ❌ **Alla uppladdningar pausas.** Streamern blockeras automatiskt och deras klipp tas bort ur kön. Du får en Discord-notis. |
+| Videon är **blockerad i vissa länder** (vanligen musikanspråk) | ⚠️ Bara en varning, uppladdningarna fortsätter |
+| Videon är **åldersbegränsad** | ⚠️ Bara en varning |
+
+Själva strikes syns inte i YouTubes API, men en strike tar alltid bort videon, så den upptäcks ändå.
+Tar du själv bort en uppladdad video tolkas det på samma sätt, och då återupptar du bara.
+
+**Återuppta efter paus:** kontrollera först YouTube Studio → *Innehåll* och *Inställningar → Kanal → Status*.
+Gå sedan till **Actions → publish → Run workflow** och kryssa i **resume**. I samma formulär kan du
+avblockera en streamer genom att skriva t.ex. `twitch:xqc` i fältet **unblock**.
+
 ### Titel och beskrivning
 Claude (`metadata.model`) får transkriptet och klippets metadata och returnerar strukturerad JSON:
 - en hook-titel på max 70 tecken som slutar på `#Shorts`,
