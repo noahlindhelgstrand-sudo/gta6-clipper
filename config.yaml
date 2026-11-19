@@ -95,18 +95,26 @@ storage:
 # (boost x rankning) och får kampanjens hashtags/omnämnande. Gå med i kampanjen på plattformen och
 # fyll i kampanjens regler här (hashtags/mention). Sätt active: false när kampanjen är slut.
 campaigns:
+  - name: "Kai Cenat – $10K GTA 6 Pool (Content Rewards)"
+    streamers: ["twitch:kaicenat"]
+    url: "https://contentrewards.com/c/campaigns/1d2bcb00-c904-415f-aa82-f95b96baad86"
+    hashtags: []          # fyll i från kampanjens regler
+    mention: ""
+    boost: 4.0            # du har gått med här – högst prioritet
   - name: "Lacy GTA 6 (Content Rewards)"
     streamers: ["twitch:lacy"]
     url: "https://contentrewards.com"
     hashtags: []          # fyll i från kampanjens regler, t.ex. ["#lacy"]
     mention: ""           # t.ex. "Clip from @Lacy"
     boost: 3.0
+    active: false         # inte med i kampanjen än – sätt true när du gått med
   - name: "Clix GTA 6 (Content Rewards)"
     streamers: ["twitch:clix"]
     url: "https://contentrewards.com"
     hashtags: []
     mention: ""
     boost: 3.0
+    active: false
 
 notify:
   daily_summary: true
