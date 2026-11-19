@@ -87,6 +87,7 @@ def test_streamer_name_forced_into_title():
     assert ensure_streamer_in_title("Streamer's Surprise: GTA 6", "xQc") == "xQc's Surprise: GTA 6"
     assert ensure_streamer_in_title("Chad's Cash Crunch", "ohnePixel") == "ohnePixel: Chad's Cash Crunch"
     assert ensure_streamer_in_title("Lacy escapes", "Lacy") == "Lacy escapes"
+    assert ensure_streamer_in_title("OhnePixel's Money Crunch", "ohnePixel") == "ohnePixel's Money Crunch"
     assert ensure_streamer_in_title("GTA6: Streamer Unusual Encounter", "Barry") == "GTA6: Barry Unusual Encounter"
 
 

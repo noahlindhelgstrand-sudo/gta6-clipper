@@ -121,7 +121,8 @@ def ensure_streamer_in_title(title: str, streamer: str) -> str:
         title = re.sub(r"\b[Ss]treamers?(?=\b)('s|s')?", lambda m: streamer + ("'s" if m.group(1) else ""), title, count=1)
     if streamer.lower() not in title.lower():
         title = f"{streamer}: {title}"
-    return title
+    # rätt stavning/versaler (modellen skriver t.ex. "OhnePixel" i stället för "ohnePixel")
+    return re.sub(re.escape(streamer), lambda m: streamer, title, count=1, flags=re.I)
 
 
 def generate_local(c: ClipCandidate, transcript: str, cfg: MetadataCfg, language: str,
