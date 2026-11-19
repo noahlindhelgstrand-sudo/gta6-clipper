@@ -69,11 +69,13 @@ def filter_clips(
     return out
 
 
-def rank(clips: Iterable[ClipCandidate], now: datetime | None = None) -> list[ClipCandidate]:
+def rank(clips: Iterable[ClipCandidate], now: datetime | None = None,
+         boosts: dict[str, float] | None = None) -> list[ClipCandidate]:
     now = now or datetime.now(timezone.utc)
+    boosts = boosts or {}
     ranked = []
     for c in clips:
-        c.score = round(velocity(c, now), 3)
+        c.score = round(velocity(c, now) * boosts.get(c.streamer_key, 1.0), 3)
         ranked.append(c)
     ranked.sort(key=lambda c: (c.score, c.views), reverse=True)
     return ranked
@@ -114,6 +116,7 @@ def select(
     known_keys: set[str],
     languages: dict[str, list[str]] | None = None,
     now: datetime | None = None,
+    boosts: dict[str, float] | None = None,
 ) -> list[ClipCandidate]:
     filtered = filter_clips(dedupe(clips), sel, streamers, allowed, known_keys, languages)
-    return pick(rank(filtered, now), sel.max_candidates_per_run, sel.max_per_streamer_per_day)
+    return pick(rank(filtered, now, boosts), sel.max_candidates_per_run, sel.max_per_streamer_per_day)

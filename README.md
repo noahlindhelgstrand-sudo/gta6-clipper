@@ -266,6 +266,19 @@ begär, tills projektet har godkänts i en audit.
 
 ---
 
+## Betalda clipping-kampanjer (Content Rewards m.fl.)
+På plattformar som [contentrewards.com](https://contentrewards.com) betalar streamers clippers per
+1 000 visningar. Med `campaigns` i `config.yaml`:
+- prioriteras kampanjstreamarnas klipp i urvalet (`boost`, standard 3 gånger högre rankning),
+- tillåts kampanjstreamers även om de inte är bland de automatiskt upptäckta,
+- läggs kampanjens **hashtags** och **omnämnande** till i titel och beskrivning,
+- visas länken som ska skickas in under **Actions → publish → körningen → Summary** när en
+  kampanjvideo har laddats upp.
+
+**Det här måste du göra själv:** skapa konto, gå med i kampanjen, lägga in utbetalningsuppgifter,
+göra videon publik och skicka in länken. Visningar räknas bara på publika videor, och uppladdningar är
+privata tills YouTube-auditen är godkänd.
+
 ## Konfiguration
 
 All konfiguration finns i `config.yaml`. Varje värde kan överskridas med en miljövariabel, t.ex.

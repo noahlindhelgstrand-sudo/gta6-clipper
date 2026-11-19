@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 
 from . import metadata as meta_mod
 from . import scheduler
-from .config import Config
+from .config import Config, campaign_for
 from .db import Database
 from .downloader import download_clip
 from .log import get_logger
@@ -109,7 +109,12 @@ class Pipeline:
             top += [r["streamer_key"] for r in self.db.top_streamers(src.platform, self.cfg.streamers.top_n)]
         # Streamers vars klipp upprepade gånger varit på fel språk tas bort automatiskt
         wrong_lang = {k for k in top if int(self.db.kv_get(f"nonlang:{k}") or 0) >= 2}
-        return allowed_streamers(self.cfg.streamers, top) - wrong_lang - self.auto_blocked()
+        campaign = {s for c in self.cfg.campaigns if c.active for s in c.streamers}
+        blocked = set(self.cfg.streamers.blocklist) | self.auto_blocked()
+        return (allowed_streamers(self.cfg.streamers, top) - wrong_lang | campaign) - blocked
+
+    def boosts(self) -> dict[str, float]:
+        return {s: c.boost for c in self.cfg.campaigns if c.active for s in c.streamers}
 
     def expire_old(self) -> None:
         cutoff = self.d.now() - timedelta(hours=self.cfg.queue.max_age_hours)
@@ -164,6 +169,9 @@ class Pipeline:
                                 meta_mod.credit_overlay(c), facecam,
                                 language=tr.language or self.cfg.language)
             self.d.store.put_video(out, out_name)
+            camp = campaign_for(self.cfg, c.streamer_key)
+            if camp:
+                meta = meta_mod.apply_campaign(meta, camp)
             self.db.mark_rendered(c.key, out_name, tr.text, meta)
             log.info("klipp klart i kön", extra={"clip": c.key, "title": meta.title, "score": c.score,
                                                  "bytes": Path(out).stat().st_size})
@@ -229,7 +237,7 @@ class Pipeline:
         need = min(need, self.cfg.selection.max_candidates_per_run)
         # Hämta extra kandidater i reserv ifall några hoppas över (fel språk) eller misslyckas
         sel = self.cfg.selection.model_copy(update={"max_candidates_per_run": need * 4})
-        chosen = select(clips, sel, self.cfg.streamers, allowed, self.known_keys(), langs, now)
+        chosen = select(clips, sel, self.cfg.streamers, allowed, self.known_keys(), langs, now, self.boosts())
         log.info("urval klart", extra={"fetched": len(clips), "allowed_streamers": len(allowed),
                                        "chosen": [f"{c.key} score={c.score}" for c in chosen]})
         for c in chosen:
@@ -322,6 +330,8 @@ class Pipeline:
         return self.db.slot(key) is not None
 
     def _slot_still_open(self, slot_key: str) -> bool:
+        if slot_key.startswith("manual"):
+            return False                     # manuell uppladdning: tillbaka i kön i stället för omförsök
         day, hm = slot_key.split(" ")
         s = next(x for x in scheduler.slots_for_day(datetime.fromisoformat(day).date(), [hm], self.cfg.timezone))
         return self.d.now() < s.utc + timedelta(hours=self.cfg.schedule.grace_hours)
@@ -340,12 +350,27 @@ class Pipeline:
             self.db.record_post(clip_key, pub.name, res.external_id, res.url, res.privacy, slot_key)
             self.save()
             urls.append(res.url)
+            camp = campaign_for(self.cfg, f"{row['platform']}:{row['streamer']}")
+            if camp:
+                self.report_campaign_post(camp, res.url, row)
             if res.locked_private:
                 self.d.notifier.warning("Video låst som privat",
                                         f"{res.url} – API-projektet är inte auditerat än (se README §3).")
         self.d.store.delete_video(row["video_file"])
         local.unlink(missing_ok=True)
         return urls
+
+    def report_campaign_post(self, camp, url: str, row) -> None:
+        """Visa länken som ska skickas in till kampanjen: i Actions-sammanfattningen och i notis."""
+        import os
+        text = (f"**{camp.name}**: {url} ({row['streamer_display']}). "
+                f"Gör videon publik och skicka in länken{' på ' + camp.url if camp.url else ''}.")
+        log.info("kampanjvideo uppladdad", extra={"campaign": camp.name, "url": url})
+        self.d.notifier.info(f"💰 Kampanjvideo: {camp.name}", text)
+        summary = os.environ.get("GITHUB_STEP_SUMMARY")
+        if summary:
+            with open(summary, "a", encoding="utf-8") as f:
+                f.write(f"### 💰 Kampanjvideo uppladdad\n\n{text}\n\n")
 
     def recover(self) -> None:
         """Klipp som fastnat i 'uploading' (förra körningen kraschade/timeout)."""

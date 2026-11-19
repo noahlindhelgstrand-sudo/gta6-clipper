@@ -161,3 +161,18 @@ def generate(c: ClipCandidate, transcript: str, cfg: MetadataCfg, language: str,
     except Exception as e:  # noqa: BLE001 – medvetet bred: fallback vid alla API-/parsefel
         log.warning("Claude misslyckades – fallback-titel", extra={"clip": c.key, "error": str(e)[:300]})
         return _fallback_flagged(c, transcript, cfg, language)
+
+
+def apply_campaign(meta: VideoMetadata, camp) -> VideoMetadata:
+    """Lägg till kampanjens hashtags (först, de krävs ofta) och omnämnande i beskrivningen."""
+    req = [t if t.startswith("#") else f"#{t}" for t in camp.hashtags]
+    tags = req + [t for t in meta.hashtags if t.lower() not in {r.lower() for r in req}]
+    desc = meta.description
+    if camp.mention and camp.mention not in desc:
+        desc = f"{camp.mention}\n\n{desc}"
+    for t in req:
+        if t.lower() not in desc.lower():
+            desc += f" {t}"
+    meta.hashtags = tags[: max(5, len(req))]
+    meta.description = desc[:4900]
+    return meta

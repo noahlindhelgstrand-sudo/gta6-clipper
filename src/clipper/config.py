@@ -178,6 +178,23 @@ class Secrets(BaseModel):
         )
 
 
+class CampaignCfg(BaseModel):
+    """En betald clipping-kampanj (t.ex. Content Rewards). Klipp från kampanjens streamers
+    prioriteras och får kampanjens hashtags/omnämnande i beskrivningen."""
+    name: str
+    streamers: list[str]                     # "twitch:lacy"
+    url: str = ""                            # kampanjsidan – länkas i sammanfattningen
+    hashtags: list[str] = Field(default_factory=list)
+    mention: str = ""                        # rad som läggs i beskrivningen, t.ex. "@lacy"
+    boost: float = 3.0                       # rankningsfaktor jämfört med andra klipp
+    active: bool = True
+
+    @field_validator("streamers")
+    @classmethod
+    def _norm(cls, v: list[str]) -> list[str]:
+        return [s.strip().lower() if ":" in s else f"twitch:{s.strip().lower()}" for s in v]
+
+
 class Config(BaseModel):
     timezone: str = "Europe/Stockholm"
     language: str = "en"
@@ -192,6 +209,7 @@ class Config(BaseModel):
     publish: PublishCfg = PublishCfg()
     storage: StorageCfg = StorageCfg()
     notify: NotifyCfg = NotifyCfg()
+    campaigns: list[CampaignCfg] = Field(default_factory=list)
     work_dir: str = "work"
     secrets: Secrets = Field(default_factory=Secrets, exclude=True)
 
@@ -231,3 +249,7 @@ def load_config(path: str | Path = "config.yaml", environ: dict[str, str] | None
     cfg = Config.model_validate(data)
     cfg.secrets = Secrets.from_env()
     return cfg
+
+
+def campaign_for(cfg: "Config", streamer_key: str) -> "CampaignCfg | None":
+    return next((c for c in cfg.campaigns if c.active and streamer_key in c.streamers), None)
