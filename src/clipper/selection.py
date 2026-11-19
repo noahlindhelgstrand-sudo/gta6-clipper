@@ -47,8 +47,10 @@ def filter_clips(
     allowed: set[str],
     known_keys: set[str],
     languages: dict[str, list[str]] | None = None,
+    min_views: dict[str, int] | None = None,
 ) -> list[ClipCandidate]:
     languages = languages or {}
+    min_views = min_views or {}
     blocked = set(streamers.blocklist)
     out = []
     for c in clips:
@@ -58,7 +60,7 @@ def filter_clips(
             continue
         if c.streamer_key not in allowed:
             continue
-        if c.views < sel.min_views:
+        if c.views < min_views.get(c.streamer_key, sel.min_views):
             continue
         if not (sel.min_duration_s <= c.duration_s <= sel.max_duration_s):
             continue
@@ -117,6 +119,7 @@ def select(
     languages: dict[str, list[str]] | None = None,
     now: datetime | None = None,
     boosts: dict[str, float] | None = None,
+    min_views: dict[str, int] | None = None,
 ) -> list[ClipCandidate]:
-    filtered = filter_clips(dedupe(clips), sel, streamers, allowed, known_keys, languages)
+    filtered = filter_clips(dedupe(clips), sel, streamers, allowed, known_keys, languages, min_views)
     return pick(rank(filtered, now, boosts), sel.max_candidates_per_run, sel.max_per_streamer_per_day)

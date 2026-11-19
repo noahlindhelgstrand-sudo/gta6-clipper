@@ -99,6 +99,15 @@ storage:
 # (boost x rankning) och får kampanjens hashtags/omnämnande. Gå med i kampanjen på plattformen och
 # fyll i kampanjens regler här (hashtags/mention). Sätt active: false när kampanjen är slut.
 campaigns:
+  - name: "Dasgasd3m x RUCKUS – $2/1K views (Content Rewards)"
+    # Betalar per 1 000 visningar på TikTok OCH YouTube (min $10, max $150 per klipp). Deadline 19 dec 2026.
+    # Kanalen är okänd (Twitch eller Kick) – båda kontrolleras.
+    streamers: ["twitch:dasgasd3m", "kick:dasgasd3m"]
+    url: "https://contentrewards.com/c/campaigns/051002dd-5c46-43d0-a446-43f2957ba3a9"
+    hashtags: []          # se "Full campaign brief" på kampanjsidan
+    mention: ""
+    boost: 6.0            # betalar från första visningen – högst prioritet
+    min_views: 10
   - name: "Kai Cenat – $10K GTA 6 Pool (Content Rewards)"
     streamers: ["twitch:kaicenat"]
     url: "https://contentrewards.com/c/campaigns/1d2bcb00-c904-415f-aa82-f95b96baad86"

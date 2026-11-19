@@ -63,6 +63,27 @@ class KickSource(ClipSource):
         log.info("kick clips hämtade", extra={"count": len(out)})
         return out[:max_clips]
 
+    def fetch_channel_clips(self, channel: str, started_at: datetime, ended_at: datetime,
+                            max_clips: int = 100) -> list[ClipCandidate]:
+        try:
+            r = self.http.get(f"https://kick.com/api/v2/channels/{channel.lower()}/clips",
+                              params={"cursor": "0", "sort": "date", "time": "week"},
+                              headers={"User-Agent": UA, "Accept": "application/json"}, timeout=20)
+            payload = r.json() if r.status_code == 200 else None
+        except (requests.RequestException, ValueError) as e:
+            raise SourceError(f"Kick kanalklipp {channel}: {e}") from e
+        if payload is None:
+            raise SourceError(f"Kick kanalklipp {channel}: HTTP {r.status_code}")
+        out = []
+        for c in payload.get("clips", []):
+            cat = (c.get("category") or {}).get("slug", "")
+            c.setdefault("channel", {"slug": channel.lower(), "username": channel})
+            cand = self._to_candidate(c)
+            if (not cat or cat == self.slug) and started_at <= cand.created_at <= ended_at:
+                out.append(cand)
+        log.info("kick kanalklipp", extra={"channel": channel, "count": len(out)})
+        return out[:max_clips]
+
     @staticmethod
     def _to_candidate(c: dict) -> ClipCandidate:
         ch = c.get("channel") or {}

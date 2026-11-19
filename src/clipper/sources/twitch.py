@@ -93,6 +93,19 @@ class TwitchSource(ClipSource):
         log.info("twitch clips hämtade", extra={"count": len(out), "game_id": gid})
         return out[:max_clips]
 
+    def fetch_channel_clips(self, channel: str, started_at: datetime, ended_at: datetime,
+                            max_clips: int = 100) -> list[ClipCandidate]:
+        """Get Users (login -> id) + Get Clips med broadcaster_id, filtrerat på GTA 6-kategorin."""
+        users = self._get("/users", {"login": channel.lower()}).get("data", [])
+        if not users:
+            raise SourceError(f"Twitch-kanalen '{channel}' finns inte")
+        gid = self.game_id()
+        payload = self._get("/clips", {"broadcaster_id": users[0]["id"], "started_at": _iso(started_at),
+                                       "ended_at": _iso(ended_at), "first": min(100, max_clips)})
+        out = [self._to_candidate(c) for c in payload.get("data", []) if c.get("game_id") == gid]
+        log.info("twitch kanalklipp", extra={"channel": channel, "count": len(out)})
+        return out
+
     @staticmethod
     def _to_candidate(c: dict) -> ClipCandidate:
         name = c.get("broadcaster_name") or ""

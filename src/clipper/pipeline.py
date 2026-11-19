@@ -88,6 +88,24 @@ class Pipeline:
             self.d.notifier.error("Alla klippkällor misslyckades", "\n".join(failures))
         return clips
 
+    def _fetch_campaign_channels(self, start: datetime, end: datetime) -> list[ClipCandidate]:
+        """Kampanjstreamers kan vara för små för kategorins topplista – hämta deras kanal direkt."""
+        by_platform = {s.platform: s for s in self.d.sources}
+        out: list[ClipCandidate] = []
+        for camp in self.cfg.campaigns:
+            if not camp.active:
+                continue
+            for key in camp.streamers:
+                platform, channel = key.split(":", 1)
+                src = by_platform.get(platform)
+                if not src:
+                    continue
+                try:
+                    out += src.fetch_channel_clips(channel, start, end)
+                except SourceError as e:
+                    log.warning("kampanjkanal kunde inte hämtas", extra={"streamer": key, "error": str(e)})
+        return out
+
     def discover_streamers(self, force: bool = False) -> None:
         last = self.db.kv_get("last_discovery")
         now = self.d.now()
@@ -231,13 +249,16 @@ class Pipeline:
             return result
 
         now = self.d.now()
-        clips = self._fetch_all(now - timedelta(hours=self.cfg.selection.lookback_hours), now, max_clips=500)
+        start = now - timedelta(hours=self.cfg.selection.lookback_hours)
+        clips = self._fetch_all(start, now, max_clips=500)
+        clips += self._fetch_campaign_channels(start, now)
         langs = {"twitch": self.cfg.sources.twitch.clip_languages}
         allowed = self.allowed()
         need = min(need, self.cfg.selection.max_candidates_per_run)
         # Hämta extra kandidater i reserv ifall några hoppas över (fel språk) eller misslyckas
         sel = self.cfg.selection.model_copy(update={"max_candidates_per_run": need * 4})
-        chosen = select(clips, sel, self.cfg.streamers, allowed, self.known_keys(), langs, now, self.boosts())
+        mins = {s: c.min_views for c in self.cfg.campaigns if c.active for s in c.streamers}
+        chosen = select(clips, sel, self.cfg.streamers, allowed, self.known_keys(), langs, now, self.boosts(), mins)
         log.info("urval klart", extra={"fetched": len(clips), "allowed_streamers": len(allowed),
                                        "chosen": [f"{c.key} score={c.score}" for c in chosen]})
         for c in chosen:

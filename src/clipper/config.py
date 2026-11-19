@@ -193,6 +193,7 @@ class CampaignCfg(BaseModel):
     hashtags: list[str] = Field(default_factory=list)
     mention: str = ""                        # rad som läggs i beskrivningen, t.ex. "@lacy"
     boost: float = 3.0                       # rankningsfaktor jämfört med andra klipp
+    min_views: int = 20                      # lägre krav än vanliga klipp (mindre streamers)
     active: bool = True
 
     @field_validator("streamers")
