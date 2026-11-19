@@ -24,6 +24,7 @@ class VideoHealth:
     state: ok | removed | rejected | claimed | age_restricted"""
     state: str
     reason: str = ""
+    privacy: str = ""            # private | unlisted | public (om känt)
 
     @property
     def severe(self) -> bool:

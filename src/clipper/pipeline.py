@@ -305,6 +305,11 @@ class Pipeline:
             health = pub.check_health([r["external_id"] for r in rows])
             for r in rows:
                 h = health.get(r["external_id"])
+                if h and h.privacy:
+                    pk = f"privacy:{pub.name}:{r['external_id']}"
+                    if h.privacy == "public" and self.db.kv_get(pk) != "public":
+                        self.notify_went_public(pub.name, r["external_id"], r["url"], r)
+                    self.db.kv_set(pk, h.privacy)
                 if not h or h.state == "ok":
                     continue
                 self.db.kv_set(f"health:{pub.name}:{r['external_id']}", h.state)   # rapportera bara en gång
@@ -351,8 +356,7 @@ class Pipeline:
             self.save()
             urls.append(res.url)
             camp = campaign_for(self.cfg, f"{row['platform']}:{row['streamer']}")
-            if camp:
-                self.report_campaign_post(camp, res.url, row)
+            self.notify_uploaded(pub.name, res, meta, row, camp)
             if res.locked_private:
                 self.d.notifier.warning("Video låst som privat",
                                         f"{res.url} – API-projektet är inte auditerat än (se README §3).")
@@ -360,17 +364,33 @@ class Pipeline:
         local.unlink(missing_ok=True)
         return urls
 
-    def report_campaign_post(self, camp, url: str, row) -> None:
-        """Visa länken som ska skickas in till kampanjen: i Actions-sammanfattningen och i notis."""
+    @staticmethod
+    def studio_url(platform: str, video_id: str) -> str:
+        return f"https://studio.youtube.com/video/{video_id}/edit" if platform == "youtube" else ""
+
+    def notify_uploaded(self, platform: str, res, meta, row, camp) -> None:
+        """Push direkt när en video laddats upp – privat video ska göras publik av dig."""
         import os
-        text = (f"**{camp.name}**: {url} ({row['streamer_display']}). "
-                f"Gör videon publik och skicka in länken{' på ' + camp.url if camp.url else ''}.")
-        log.info("kampanjvideo uppladdad", extra={"campaign": camp.name, "url": url})
-        self.d.notifier.info(f"💰 Kampanjvideo: {camp.name}", text)
+        studio = self.studio_url(platform, res.external_id)
+        lines = [meta.title, f"Streamer: {row['streamer_display']}", f"Video: {res.url}"]
+        if res.privacy != "public":
+            lines.insert(0, "Gör videon PUBLIK (tryck för att öppna i YouTube Studio).")
+        if camp:
+            lines.append(f"💰 Kampanj: {camp.name} – skicka in länken när den är publik.")
+        self.d.notifier.send("success", "📹 Ny video uppladdad" + (" – kampanj!" if camp else ""),
+                             "\n".join(lines), click=studio or res.url, priority=5 if camp else 4)
         summary = os.environ.get("GITHUB_STEP_SUMMARY")
         if summary:
             with open(summary, "a", encoding="utf-8") as f:
-                f.write(f"### 💰 Kampanjvideo uppladdad\n\n{text}\n\n")
+                f.write(f"### 📹 Ny video uppladdad\n\n" + "  \n".join(lines) + "\n\n")
+        log.info("video uppladdad – notis skickad", extra={"url": res.url, "campaign": camp.name if camp else None})
+
+    def notify_went_public(self, platform: str, video_id: str, url: str, row) -> None:
+        camp = campaign_for(self.cfg, f"{row['platform']}:{row['streamer']}")
+        if camp:
+            self.d.notifier.send("success", f"✅ Publik – skicka in till {camp.name}",
+                                 f"{url}\nKampanj: {camp.url or camp.name}", click=camp.url or url, priority=5)
+        log.info("video är nu publik", extra={"url": url, "campaign": camp.name if camp else None})
 
     def recover(self) -> None:
         """Klipp som fastnat i 'uploading' (förra körningen kraschade/timeout)."""

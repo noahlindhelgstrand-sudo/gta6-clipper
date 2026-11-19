@@ -47,5 +47,6 @@ jobs:
           TWITCH_CLIENT_SECRET: ${{ secrets.TWITCH_CLIENT_SECRET }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: clipper ${{ inputs.dry_run && '--dry-run' || '' }} prepare

@@ -64,7 +64,9 @@ def test_campaign_upload_writes_actions_summary(cfg, tmp_path, monkeypatch):
         assert p.publish()["posted"]
     text = summary.read_text()
     assert "Alpha camp" in text and "youtube.com/shorts/" in text
-    assert any("Kampanjvideo" in e["embeds"][0]["title"] for e in deps.notifier.sent)
+    up = [e for e in deps.notifier.sent if "Ny video uppladdad" in e["embeds"][0]["title"]]
+    assert up and "kampanj" in up[0]["embeds"][0]["title"]
+    assert up[0]["embeds"][0]["url"].startswith("https://studio.youtube.com/video/")
 
 
 def test_stuck_manual_upload_goes_back_to_queue(cfg):

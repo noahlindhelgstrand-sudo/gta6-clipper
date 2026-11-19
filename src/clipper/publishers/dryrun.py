@@ -29,4 +29,4 @@ class DryRunPublisher(Publisher):
         return None
 
     def check_health(self, external_ids: list[str]) -> dict[str, VideoHealth]:
-        return {vid: VideoHealth("ok") for vid in external_ids}
+        return {vid: VideoHealth("ok", privacy=self.privacy) for vid in external_ids}

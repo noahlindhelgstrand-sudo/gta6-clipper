@@ -159,6 +159,7 @@ class Secrets(BaseModel):
     youtube_refresh_token: str | None = None
     anthropic_api_key: str | None = None
     discord_webhook_url: str | None = None
+    ntfy_topic: str | None = None
     github_token: str | None = None
     github_repository: str | None = None
 
@@ -173,6 +174,7 @@ class Secrets(BaseModel):
             youtube_refresh_token=e("YOUTUBE_REFRESH_TOKEN"),
             anthropic_api_key=e("ANTHROPIC_API_KEY"),
             discord_webhook_url=e("DISCORD_WEBHOOK_URL"),
+            ntfy_topic=e("NTFY_TOPIC"),
             github_token=e("GITHUB_TOKEN") or e("GH_TOKEN"),
             github_repository=e("GITHUB_REPOSITORY"),
         )

@@ -37,7 +37,7 @@ def build_sources(cfg: Config):
 
 
 def build_deps(cfg: Config, dry_run: bool, need_publishers: bool) -> Deps:
-    notifier = Notifier(cfg.secrets.discord_webhook_url)
+    notifier = Notifier(cfg.secrets.discord_webhook_url, ntfy_topic=cfg.secrets.ntfy_topic)
     if dry_run:
         # dry-run rör aldrig riktiga tillståndet
         store = LocalStore(Path(cfg.work_dir) / "dryrun-data")
@@ -109,7 +109,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         deps = build_deps(cfg, args.dry_run, need_publishers=need_pub)
     except Exception as e:  # noqa: BLE001
-        Notifier(cfg.secrets.discord_webhook_url).error(f"{args.cmd}: uppstart misslyckades", str(e))
+        Notifier(cfg.secrets.discord_webhook_url, ntfy_topic=cfg.secrets.ntfy_topic).error(f"{args.cmd}: uppstart misslyckades", str(e))
         log.exception("uppstart misslyckades")
         return 1
 

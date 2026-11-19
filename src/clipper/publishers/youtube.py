@@ -173,14 +173,15 @@ class YouTubePublisher(Publisher):
                     out[vid] = VideoHealth("removed", "videon finns inte längre (borttagen av YouTube eller manuellt)")
                     continue
                 st, cd = v.get("status", {}), v.get("contentDetails", {})
+                privacy = st.get("privacyStatus", "")
                 if st.get("uploadStatus") == "rejected":
                     reason = st.get("rejectionReason", "okänd")
-                    out[vid] = VideoHealth("rejected" if reason in self.SEVERE_REJECTIONS else "ok", f"avvisad: {reason}")
+                    out[vid] = VideoHealth("rejected" if reason in self.SEVERE_REJECTIONS else "ok", f"avvisad: {reason}", privacy)
                 elif (cd.get("regionRestriction") or {}).get("blocked"):
                     n = len(cd["regionRestriction"]["blocked"])
-                    out[vid] = VideoHealth("claimed", f"blockerad i {n} länder (troligen musik-/upphovsrättsanspråk)")
+                    out[vid] = VideoHealth("claimed", f"blockerad i {n} länder (troligen musik-/upphovsrättsanspråk)", privacy)
                 elif (cd.get("contentRating") or {}).get("ytRating") == "ytAgeRestricted":
-                    out[vid] = VideoHealth("age_restricted", "åldersbegränsad av YouTube")
+                    out[vid] = VideoHealth("age_restricted", "åldersbegränsad av YouTube", privacy)
                 else:
-                    out[vid] = VideoHealth("ok")
+                    out[vid] = VideoHealth("ok", privacy=privacy)
         return out
