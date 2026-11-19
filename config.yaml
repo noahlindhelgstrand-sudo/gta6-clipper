@@ -64,9 +64,13 @@ transcribe:
   device: cpu
 
 metadata:
-  model: claude-opus-5-5
+  model: claude-opus-5-5         # bara om ANTHROPIC_API_KEY finns (valfritt, kostar pengar)
   effort: low
   max_title_chars: 70
+  local_ai: true                 # gratis: CLIP + Qwen körs på GitHub-runnern om ingen nyckel finns
+  local_llm: "Qwen/Qwen2.5-1.5B-Instruct"
+  local_clip: "openai/clip-vit-base-patch32"
+  suggestive_threshold: 0.45
 
 queue:
   buffer_min: 6                  # varning till Discord under detta

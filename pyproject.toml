@@ -21,6 +21,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+# Gratis lokal AI. Installera torch från CPU-indexet först (mindre):
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+local-ai = ["torch", "transformers>=4.45", "pillow"]
 
 [project.scripts]
 clipper = "clipper.cli:main"

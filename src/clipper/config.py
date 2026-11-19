@@ -91,9 +91,13 @@ class TranscribeCfg(BaseModel):
 
 
 class MetadataCfg(BaseModel):
-    model: str = "claude-opus-5-5"
+    model: str = "claude-opus-5-5"     # används bara om ANTHROPIC_API_KEY finns
     effort: str = "low"
     max_title_chars: int = 70
+    local_ai: bool = True              # gratis lokal AI (CLIP + Qwen) när ingen Claude-nyckel finns
+    local_llm: str = "Qwen/Qwen2.5-1.5B-Instruct"
+    local_clip: str = "openai/clip-vit-base-patch32"
+    suggestive_threshold: float = 0.45  # CLIP: andel "strippklubb/nakenhet" för att flagga
 
 
 class QueueCfg(BaseModel):

@@ -115,14 +115,43 @@ def _fallback_flagged(c: ClipCandidate, transcript: str, cfg: MetadataCfg, langu
     return meta
 
 
+def generate_local(c: ClipCandidate, transcript: str, cfg: MetadataCfg, language: str,
+                   frames: list[bytes] | None, ai=None) -> VideoMetadata:
+    """Gratis väg: CLIP bedömer bilden, liten lokal språkmodell skriver texterna."""
+    from . import localai
+    ai = ai or localai
+    if not cfg.local_ai or not ai.available():
+        log.warning("ingen Claude-nyckel och lokal AI ej installerad – mall-titel")
+        return _fallback_flagged(c, transcript, cfg, language)
+    try:
+        vision = ai.look(frames or [], cfg.local_clip)
+    except Exception as e:  # noqa: BLE001
+        log.warning("CLIP misslyckades", extra={"error": str(e)[:300]})
+        vision = {"suggestive": 0.0, "boring": 0.0, "scene": ""}
+    try:
+        data = ai.write(c.streamer_display, c.title, transcript, vision.get("scene", ""), language, cfg.local_llm)
+    except Exception as e:  # noqa: BLE001
+        log.warning("lokal språkmodell misslyckades", extra={"error": str(e)[:300]})
+        data = None
+    if data:
+        meta = assemble(c, data["title"], data["hook"] or "Wait for it…", data["description"],
+                        data["hashtags"] or ["#GTA6"], cfg, "local", language)
+    else:
+        meta = fallback(c, cfg, language)
+    meta.suggestive = vision.get("suggestive", 0) >= cfg.suggestive_threshold or looks_suggestive(c.title, transcript)
+    meta.interest = ai.interest_score(vision, transcript)
+    log.info("metadata från lokal AI", extra={"clip": c.key, "title": meta.title, "suggestive": meta.suggestive,
+                                              "interest": meta.interest, "vision": vision})
+    return meta
+
+
 def generate(c: ClipCandidate, transcript: str, cfg: MetadataCfg, language: str,
              api_key: str | None, client=None, frames: list[bytes] | None = None) -> VideoMetadata:
     """Försök med Claude; vid alla fel -> fallback (pipelinen ska aldrig stanna här).
     `frames` = JPEG-bildrutor ur klippet så att Claude ser vad som händer (och kan flagga suggestivt innehåll)."""
     if client is None:
         if not api_key:
-            log.warning("ANTHROPIC_API_KEY saknas – använder fallback-titel")
-            return _fallback_flagged(c, transcript, cfg, language)
+            return generate_local(c, transcript, cfg, language, frames)
         import anthropic
         client = anthropic.Anthropic(api_key=api_key, max_retries=3, timeout=60)
 
