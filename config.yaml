@@ -101,13 +101,12 @@ campaigns:
     hashtags: []          # fyll i från kampanjens regler
     mention: ""
     boost: 4.0            # du har gått med här – högst prioritet
-  - name: "Lacy GTA 6 (Content Rewards)"
+  - name: "Lacy – $12,500 GTA VI Marathon Pool (Content Rewards)"
     streamers: ["twitch:lacy"]
-    url: "https://contentrewards.com"
-    hashtags: []          # fyll i från kampanjens regler, t.ex. ["#lacy"]
-    mention: ""           # t.ex. "Clip from @Lacy"
-    boost: 3.0
-    active: false         # inte med i kampanjen än – sätt true när du gått med
+    url: "https://contentrewards.com/c/campaigns/a5c63fad-cd53-4b81-9305-4a2d1696872a"
+    hashtags: []          # regler: reachclipping.com (LACYGT...) – fyll i
+    mention: ""
+    boost: 4.0
   - name: "Clix GTA 6 (Content Rewards)"
     streamers: ["twitch:clix"]
     url: "https://contentrewards.com"
