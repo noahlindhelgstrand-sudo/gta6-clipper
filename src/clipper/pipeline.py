@@ -186,7 +186,7 @@ class Pipeline:
             shutil.rmtree(clip_dir, ignore_errors=True)
 
     # Höj när renderingen ändras på ett sätt som gör gamla köade videor inaktuella
-    RENDER_VERSION = "3-suggestive"
+    RENDER_VERSION = "4-localai"
 
     def suggestive_in_queue(self) -> int:
         return sum(1 for r in self.db.rendered_queue() if self.db.meta_of(r).suggestive)
