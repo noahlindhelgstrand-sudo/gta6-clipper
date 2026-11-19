@@ -120,13 +120,13 @@ campaigns:
     hashtags: []          # regler: reachclipping.com (LACYGT...) – fyll i
     mention: ""
     boost: 4.0
-  - name: "Clix GTA 6 (Content Rewards)"
+  - name: "Clix – $5,000 GTA VI Marathon Pool (Content Rewards)"
+    # Pott delas efter visningar: 500 visningar per klipp, 400K totalt för att få andel.
     streamers: ["twitch:clix"]
-    url: "https://contentrewards.com"
-    hashtags: []
+    url: "https://contentrewards.com/c/campaigns/985dc674-c75e-44fc-ac87-1b1506324389"
+    hashtags: []          # regler: reachclipping.com/ClixGTA... – fyll i
     mention: ""
-    boost: 3.0
-    active: false
+    boost: 4.0
 
 notify:
   daily_summary: true
