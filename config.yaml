@@ -70,7 +70,7 @@ metadata:
   local_ai: true                 # gratis: CLIP + Qwen körs på GitHub-runnern om ingen nyckel finns
   local_llm: "Qwen/Qwen2.5-1.5B-Instruct"
   local_clip: "openai/clip-vit-base-patch32"
-  suggestive_threshold: 0.45
+  suggestive_threshold: 0.55     # kalibrerat på riktiga klipp (smoke-ai)
 
 queue:
   buffer_min: 6                  # varning till Discord under detta

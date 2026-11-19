@@ -115,6 +115,15 @@ def _fallback_flagged(c: ClipCandidate, transcript: str, cfg: MetadataCfg, langu
     return meta
 
 
+def ensure_streamer_in_title(title: str, streamer: str) -> str:
+    """Små modeller glömmer namnet – och skriver ibland 'Streamer' i stället. Namnet säljer klippet."""
+    if streamer.lower() not in title.lower():
+        title = re.sub(r"\b[Ss]treamers?(?=\b)('s|s')?", lambda m: streamer + ("'s" if m.group(1) else ""), title, count=1)
+    if streamer.lower() not in title.lower():
+        title = f"{streamer}: {title}"
+    return title
+
+
 def generate_local(c: ClipCandidate, transcript: str, cfg: MetadataCfg, language: str,
                    frames: list[bytes] | None, ai=None) -> VideoMetadata:
     """Gratis väg: CLIP bedömer bilden, liten lokal språkmodell skriver texterna."""
@@ -134,6 +143,7 @@ def generate_local(c: ClipCandidate, transcript: str, cfg: MetadataCfg, language
         log.warning("lokal språkmodell misslyckades", extra={"error": str(e)[:300]})
         data = None
     if data:
+        data["title"] = ensure_streamer_in_title(data["title"], c.streamer_display)
         meta = assemble(c, data["title"], data["hook"] or "Wait for it…", data["description"],
                         data["hashtags"] or ["#GTA6"], cfg, "local", language)
     else:

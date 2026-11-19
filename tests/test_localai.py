@@ -80,3 +80,15 @@ def test_without_key_generate_routes_to_local(monkeypatch):
     monkeypatch.setattr(md, "generate_local", lambda *a, **k: seen.setdefault("local", True) or md.fallback(a[0], a[2]))
     generate(make_clip(), "", MetadataCfg(), "en", api_key=None)
     assert seen.get("local")
+
+
+def test_streamer_name_forced_into_title():
+    from clipper.metadata import ensure_streamer_in_title
+    assert ensure_streamer_in_title("Streamer's Surprise: GTA 6", "xQc") == "xQc's Surprise: GTA 6"
+    assert ensure_streamer_in_title("Chad's Cash Crunch", "ohnePixel") == "ohnePixel: Chad's Cash Crunch"
+    assert ensure_streamer_in_title("Lacy escapes", "Lacy") == "Lacy escapes"
+    assert ensure_streamer_in_title("GTA6: Streamer Unusual Encounter", "Barry") == "GTA6: Barry Unusual Encounter"
+
+
+def test_menu_clip_gets_low_interest():
+    assert interest_score({"boring": 0.487}, "Press square to enable screen narration") <= 3

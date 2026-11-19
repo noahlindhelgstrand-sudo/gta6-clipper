@@ -87,7 +87,7 @@ def _llm(model_name: str):
     return _LLM
 
 
-PROMPT = """You write metadata for a YouTube Short / Instagram Reel cut from a {streamer} GTA 6 livestream.
+PROMPT = """You write metadata for a YouTube Short / Instagram Reel cut from the GTA 6 livestream of the streamer named "{streamer}".
 What is on screen: {scene}.
 Original clip title: "{clip_title}"
 What the streamer says: "{transcript}"
@@ -97,7 +97,8 @@ Reply with ONLY a JSON object, in {language}:
   "hook": "<2-6 words shown on screen at the start, e.g. He did NOT expect this>",
   "description": "<one sentence about the moment>",
   "hashtags": ["#GTA6", "<3 more relevant hashtags>"]}}
-Rules: be truthful to the transcript, no profanity, no sexual words, mention {streamer} in the title."""
+Rules: be truthful to the transcript, no profanity, no sexual words. The title MUST contain the name "{streamer}"
+(never write the word "Streamer" instead of the name)."""
 
 
 def write(streamer: str, clip_title: str, transcript: str, scene: str, language: str = "en",
@@ -140,9 +141,10 @@ EXCITED = re.compile(r"\b(no way|oh my god|what the|bro|lmao|lol|let'?s go|holy|
 def interest_score(vision: dict, transcript: str) -> int:
     """Grov lokal uppskattning 1–10 (Claude gör detta bättre om nyckel finns)."""
     score = 6
-    if vision.get("boring", 0) > 0.5:
+    boring = vision.get("boring", 0)
+    if boring > 0.4:          # menyer/laddningsskärmar (xQc i PS5-menyn gav 0,49)
         score = 2
-    elif vision.get("boring", 0) > 0.3:
+    elif boring > 0.25:
         score -= 2
     words = len(transcript.split())
     if words < 5:
